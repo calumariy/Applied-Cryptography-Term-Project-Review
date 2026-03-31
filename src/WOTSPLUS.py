@@ -12,15 +12,24 @@ from ADRS import ADRS, ADRSType
 
 @dataclass
 class SphincsParams:
-    n: int  # security parameter (bytes)
-    w: int  # Winternitz parameter — must be 4, 16, or 256 (spec r3.1 §3.1)
-    # placeholders – not used in WOTS+
-    h: int = 0
-    d: int = 0
-    k: int = 0
-    t: int = 0
+    def __init__(self, n, w, h, d, k, t):
+        if n <= 0 or w <= 0 or h <= 0 or d <= 0 or k <= 0 or t <= 0:
+            raise ValueError("All parameters must be positive")
 
-    def __post_init__(self):
+        if h % d != 0:
+            raise ValueError("h must be divisible by d")
+
+        # t must be power of 2
+        if (t & (t - 1)) != 0:
+            raise ValueError("t must be a power of 2")
+
+        self.n = n
+        self.w = w
+        self.h = h
+        self.d = d
+        self.k = k
+        self.t = t
+
         # Derived WOTS+ parameters per SPHINCS+ spec (r3.1 §3.1).
         # len1 = ceil(8n / lg(w))
         self.len1 = math.ceil(8 * self.n / math.log2(self.w))

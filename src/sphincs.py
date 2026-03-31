@@ -35,22 +35,23 @@ class Sphincs:
     k: number of FORS trees
     t: number ofFORS leaves
     """
-    def __init__(self, n: int, w: int, h: int, d: int, k: int, t: int):
-        self.n = n
-        self.h = h
-        self.d = d
-        self.w = w
-        self.k = k
-        self.t = t
+    def __init__(self, params: SphincsParams) -> None:
+
+        self.params = params
+
+        self.n = params.n
+        self.h = params.h
+        self.d = params.d
+        self.w = params.w
+        self.k = params.k
+        self.t = params.t
         self.a = int(math.log2(self.t))
 
-        self.params = SphincsParams(n, w, h, d, k, t)
-
-        # Core primitives
+        # primitives
         self.adrs = ADRS()
         self.wots = WOTSPlus(self.params)
-        self.fors = FORS(n, k, t, self.adrs)
-        self.hypertree = Hypertree(h, d, w, n, self.wots, self.adrs)
+        self.fors = FORS(self.n, self.k, self.t, self.adrs)
+        self.hypertree = Hypertree(self.h, self.d, self.w, self.n, self.wots, self.adrs)
 
 
     def spx_keygen(self) -> Tuple[SK, PK]:
@@ -90,7 +91,7 @@ class Sphincs:
         idx_tree = (digest_int >> leaf_bits) & ((1 << tree_bits) - 1)
         idx_leaf = digest_int & ((1 << leaf_bits) - 1)
 
-        md_bytes = md.to_bytes((md_bits + 7) // 8, "big")
+        md_bytes = md.to_bytes((md_bits + 7) // 8, "big") # integer overflow....
 
         adrs = ADRS()
         adrs.set_layer_add(0)

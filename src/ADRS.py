@@ -118,6 +118,7 @@ class ADRS:
         # big-endian 8 unsigned integers following the schema.    
         return struct.pack(">8I", *self.words)
 
+    @classmethod
     def from_bytes(cls, data:bytes) -> "ADRS":
         if (len(data)!= cls.size):
             raise ValueError(f"ADRS must be {cls.size} bytes, received {len(data)} instead.")

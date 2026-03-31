@@ -9,6 +9,7 @@ from Hypertree import Hypertree
 from Hypertree_sig import hypertree_sig
 from FORS import FORS
 from FORS_sig import FORS_sig
+from sphincs import Sphincs, SK, PK
 
 # ================================================================
 # Test Parameters
@@ -50,6 +51,10 @@ def pk_seed():
     return os.urandom(N)
 
 @pytest.fixture
+def skprf():
+    return os.urandom(N)
+
+@pytest.fixture
 def wots():
     return WOTSPlus(PARAMS)
 
@@ -74,6 +79,10 @@ def message():
 def fors_message():
     bits = K * int(math.log2(T))
     return os.urandom((bits + 7) // 8)
+
+@pytest.fixture
+def sphincs():
+    return Sphincs(PARAMS)
 
 # ================================================================
 # XMSS Tests
@@ -306,8 +315,8 @@ class TestFORS:
 
     # invalid test (following the spec)
     def test_treehash_misaligned_start_returns_error(self, fors, sk_seed, pk_seed):
-        result = fors.fors_treehash(sk_seed, 1, 1, pk_seed, make_fors_adrs())
-        assert result == -1
+        with pytest.raises(ValueError):
+            fors.fors_treehash(sk_seed, 1, 1, pk_seed, make_fors_adrs())
 
     # deterministic test
     def test_treehash_deterministic(self, fors, sk_seed, pk_seed):
@@ -385,6 +394,41 @@ class TestFORS:
             sig       = fors.fors_sign(msg, sk_seed, pk_seed, make_fors_adrs())
             recovered = fors.fors_pkFromSig(sig, msg, pk_seed, make_fors_adrs())
             assert recovered == pk
+
+# ================================================================
+# Sphincs+ Tests
+# ================================================================
+class TestSphincs:
+
+    # simple check tests, see if if statement gets through.
+    def test_invalid_n_raises(self):
+        with pytest.raises(ValueError):
+            SphincsParams(n=0, w=W, h=H, d=D, k=K, t=T)
+
+    def test_a_computed_correctly(self, sphincs):
+        assert sphincs.fors.a == int(math.log2(T))
+
+    def test_invalid_h_raises(self):
+        with pytest.raises(ValueError):
+            SphincsParams(n=N, w=W, h=0, d=D, k=K, t=T)
+
+    def test_h_not_divisible_by_d_raises(self):
+        with pytest.raises(ValueError):
+            SphincsParams(n=N, w=W, h=7, d=D, k=K, t=T)
+
+    def test_invalid_d_raises(self):
+        with pytest.raises(ValueError):
+            SphincsParams(n=N, w=W, h=H, d=0, k=K, t=T)
+
+    def test_invalid_t_raises(self):
+        with pytest.raises(ValueError):
+            SphincsParams(n=N, w=W, h=H, d=D, k=K, t=7)
+
+    # def test_sign_then_verify(self, sphincs, message):
+    #     (sk, pk) = sphincs.spx_keygen()
+    #     sig = sphincs.spx_sign(message, sk)
+    #     assert sphincs.spx_verify(message, sig, pk) is True
+
 
 # ================================================================
 # DGSP Tests
