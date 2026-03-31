@@ -12,7 +12,7 @@ class hypertree_sig:
   def __init__(self, xmss_sigs: List[xmss_sig]):
     self.xmss_sigs = xmss_sigs
 
-  def get_xmss_sigs(self, layer:int) -> List[xmss_sig]:
+  def get_xmss_sigs(self, layer:int) -> xmss_sig:
     return self.xmss_sigs[layer]
   
   def to_bytes(self) -> bytes:
@@ -22,13 +22,17 @@ class hypertree_sig:
     return bytes(sig_bytes)
   
   @staticmethod
-  def from_bytes(sig_bytes: bytes, h: int, n: int, w: int, d: int) -> "hypertree_sig":
-    xmss_sigs = []
-    offset = 0
-    for i in range(d):
-        xmss_sig_bytes = sig_bytes[offset:offset + ((h // d) + w) * n]
-        offset += ((h // d) + w) * n
-        xmss_sigs.append(xmss_sig.from_bytes(xmss_sig_bytes, h // d, n, w))
-    return hypertree_sig(xmss_sigs)
-  
+  def from_bytes(sig_bytes: bytes, h: int, n: int, d: int, len_wots: int) -> "hypertree_sig":
+      xmss_sigs = []
+      offset = 0
+      xmss_sig_len = (h // d + len_wots) * n
+      for _ in range(d):
+          chunk = sig_bytes[offset:offset + xmss_sig_len]
+          offset += xmss_sig_len
+
+          xmss_sigs.append(
+              xmss_sig.from_bytes(chunk, h // d, n, len_wots)
+          )
+
+      return hypertree_sig(xmss_sigs)
     

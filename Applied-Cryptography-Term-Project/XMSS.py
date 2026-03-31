@@ -1,4 +1,5 @@
 import math
+from typing import List
 from ADRS import ADRSType, ADRS
 from WOTSPLUS import WOTSPlus
 from XMSS_sig import xmss_sig
@@ -36,7 +37,7 @@ class XMSS:
             if (s > 0xFFFFFFFF or z > 0xFFFFFFFF):
                 raise ValueError(f"Values {s} or/and {z} exceeds 32 bit limit")
             
-            if (s % (1 <<z) != 0): return 1
+            if (s % (1 << z) != 0): raise ValueError(f"Leaf at index {s} is not a leftmost leaf of a sub-tree of height {z}")
             # list impl of stack
             stack = []
 
@@ -72,7 +73,7 @@ class XMSS:
             adrs - address
         """
         def xmss_sign(self, M:bytes, sk_seed: bytes, idx: int, pk_seed: bytes, adrs: ADRS) -> xmss_sig:
-            AUTH = [None] * self.xmss_h
+            AUTH: List[bytes] = [b""] * self.xmss_h
             for j in range(self.xmss_h):
                 k = math.floor(idx / (pow(2,j))) ^ 1
                 AUTH[j] = self.TreeHash(sk_seed, k * pow(2,j), j, pk_seed, adrs)
@@ -87,8 +88,8 @@ class XMSS:
             adrs.set_key_pair_add(idx)
             # get components of the xmss_sig sig
             AUTH = sig.get_auth()
-            sig = sig.get_sig()
-            node = self.wots_plus.wots_pkFromSig(sig, M, pk_seed, adrs)
+            signature = sig.get_sig()
+            node = self.wots_plus.wots_pkFromSig(signature, M, pk_seed, adrs)
 
             adrs.set_type(ADRSType.TREE)
             adrs.set_tree_index(idx)

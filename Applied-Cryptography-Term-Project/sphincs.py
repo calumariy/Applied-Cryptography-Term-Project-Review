@@ -3,14 +3,12 @@ import os
 from typing import Tuple
 from dataclasses import dataclass
 from ADRS import ADRS, ADRSType
-from WOTSPLUS import WOTSPlus
+from WOTSPLUS import SphincsParams, WOTSPlus
 from Hypertree import Hypertree
 from Hypertree_sig import hypertree_sig
 from FORS import FORS
 from FORS_sig import FORS_sig
 from helpers import PRFmsg, Hmsg
-from random import randbytes as rand
-
 import math
 
 Randomize = True;
@@ -44,10 +42,13 @@ class Sphincs:
         self.w = w
         self.k = k
         self.t = t
+        self.a = int(math.log2(self.t))
+
+        self.params = SphincsParams(n, w, h, d, k, t)
 
         # Core primitives
         self.adrs = ADRS()
-        self.wots = WOTSPlus(n, w, h, d, k, t)
+        self.wots = WOTSPlus(self.params)
         self.fors = FORS(n, k, t, self.adrs)
         self.hypertree = Hypertree(h, d, w, n, self.wots, self.adrs)
 
@@ -129,14 +130,11 @@ class Sphincs:
 
         SIG_HT_bytes = SIG[offset:offset + sig_ht_len]
 
-        # Convert back to objects
-        sig_fors = FORS_sig.from_bytes(SIG_FORS_bytes)
-        sig_ht   = hypertree_sig.from_bytes(SIG_HT_bytes)
+        sig_fors = FORS_sig.from_bytes(SIG_FORS_bytes, self.k, self.a, self.n)
+        sig_ht = hypertree_sig.from_bytes(SIG_HT_bytes, self.h, self.n, self.d, self.wots.params.len)
 
         digest = Hmsg(R, pk.pk_seed, pk.pk_root, message)
-
-        a = int(math.log2(self.t))
-        md_bits = self.k * a
+        md_bits = self.k * self.a
         tree_bits = self.h - (self.h // self.d)
         leaf_bits = self.h // self.d
 

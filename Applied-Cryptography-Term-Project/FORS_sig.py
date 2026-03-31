@@ -10,16 +10,16 @@ This will be checked in sig gen
 
 class FORS_sig:
     sk: List[bytes]
-    auth: List[bytes]
+    auth: List[List[bytes]]
     
-    def __init__(self, sk: List[bytes], auth: List[bytes]):
+    def __init__(self, sk: List[bytes], auth: List[List[bytes]]):
         self.sk = sk
         self.auth = auth
 
     def get_sk(self, layer: int) -> bytes:
         return self.sk[layer]
     
-    def get_auth(self, layer: int) -> bytes:
+    def get_auth(self, layer: int) -> List[bytes]:
         return self.auth[layer]
     
     def get_self(self) -> "FORS_sig":
@@ -30,10 +30,11 @@ class FORS_sig:
         for i in range(len(self.sk)):
             sig_bytes += self.sk[i]
             for j in range(len(self.auth[i])):
-                sig_bytes += self.auth[j]
+                sig_bytes += self.auth[i][j]
         return bytes(sig_bytes)
     
-    def from_bytes(self, sig_bytes: bytes, k: int, a: int, n: int) -> "FORS_sig":
+    @staticmethod
+    def from_bytes(sig_bytes: bytes, k: int, a: int, n: int) -> "FORS_sig":
         sk = []
         auth = []
         offset = 0

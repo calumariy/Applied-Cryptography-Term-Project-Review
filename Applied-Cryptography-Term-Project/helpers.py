@@ -1,5 +1,5 @@
 import hashlib
-from ADRS import ADRS
+from ADRS import ADRS, ADRSType
 from typing import List
 
 def toByte(x: int, y: int) -> bytes:
@@ -21,16 +21,39 @@ def thash(PK_seed: bytes, ADRS_obj: ADRS, M: bytes, n: int) -> bytes:
 def F(PK_seed: bytes, ADRS_obj: ADRS, M: bytes, n: int) -> bytes:
     return thash(PK_seed, ADRS_obj, M, n)
 
+
+def base_w(X: bytes, w: int, out_len: int) -> List[int]:
+    log_w = int(w).bit_length() - 1
+    if 2 ** log_w != w:
+        raise ValueError("w must be a power of 2")
+
+    basew = [0] * out_len
+    total = 0
+    bits = 0
+    in_index = 0
+
+    for out_index in range(out_len):
+        if bits == 0:
+            if in_index >= len(X):
+                raise ValueError("Not enough input bytes for base_w conversion")
+            total = X[in_index]
+            in_index += 1
+            bits += 8
+        bits -= log_w
+        basew[out_index] = (total >> bits) & (w - 1)
+
+    return basew
     
 def H(PK_seed: bytes, ADRS_obj: ADRS,
       M1: bytes, M2: bytes, n: int) -> bytes:
     return thash(PK_seed, ADRS_obj, M1 + M2, n)
 
-
-def T_len(PK_seed: bytes, ADRS_obj: ADRS, M:bytes , n: int) -> bytes:
-    M = b"".join(M) if isinstance(M, list) else M
-    return thash(PK_seed, ADRS_obj, M, n)
-
+def T_len(PK_seed: bytes, ADRS_obj: ADRS, M: List[bytes], n: int) -> bytes:
+    ADRS_obj = ADRS_obj.copy()
+    assert isinstance(M, list)
+    assert all(len(x) == n for x in M)
+    buf = b"".join(M)
+    return thash(PK_seed, ADRS_obj, buf, n)
 
 def PRF(SK_seed: bytes, ADRS_obj: ADRS, n: int) -> bytes:
     shake = hashlib.shake_256()

@@ -3,6 +3,7 @@ from math import log
 from ADRS import ADRS, ADRSType
 from helpers import H, F, PRF, T_len
 from FORS_sig import FORS_sig
+from typing import List
 
 class FORS:
     # all three must be positive integers.
@@ -55,7 +56,7 @@ class FORS:
         if (s > 0xFFFFFFFF or z > 0xFFFFFFFF):
             raise ValueError(f"Values {s} or/and {z} exceeds 32 bit limit")
         
-        if (s % (1 <<z) != 0): return -1;
+        if (s % (1 <<z) != 0): raise ValueError(f"Leaf at index {s} is not a leftmost leaf of a sub-tree of height {z}")
         # list impl of stack
         stack = []
 
@@ -106,7 +107,7 @@ class FORS:
             # hopefully its correct.
             idx = (M_int >> (self.k - 1 - i) * self.a) % self.t
             sk = self.fors_SKgen(sk_seed, adrs.copy(), i * self.t + idx)
-            auth = [None] * self.a
+            auth: List[bytes] = [b""] * self.a 
             for j in range(self.a):
                 s = (idx // (1 << j)) ^ 1
                 auth[j] = self.fors_treehash(sk_seed, i * self.t + s * (1 << j), j, pk_seed, adrs.copy())
@@ -116,7 +117,7 @@ class FORS:
     
     def fors_pkFromSig(self, SIG_FORS: FORS_sig, M: bytes, pk_seed: bytes, adrs: ADRS) -> bytes:
         M_int = int.from_bytes(M, byteorder='big')
-        node = [b""] * 2
+        node: List[bytes] = [b"", b""]
         root = [b""] * self.k
         # compute from the roots.
         for i in range(self.k):
@@ -127,9 +128,6 @@ class FORS:
             adrs.set_tree_height(0)
             adrs.set_tree_index((i* self.t) + idx)
             node[0] = F(pk_seed, adrs.copy(), sk, self.n)
-            node[1] = 0
-
-            # compute root from leaf to auth
             auth = SIG_FORS.get_auth(i)
             adrs.set_tree_index((i * self.t) + idx)
             for j in range(self.a):
