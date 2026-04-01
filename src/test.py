@@ -424,11 +424,91 @@ class TestSphincs:
         with pytest.raises(ValueError):
             SphincsParams(n=N, w=W, h=H, d=D, k=K, t=7)
 
-    # def test_sign_then_verify(self, sphincs, message):
-    #     (sk, pk) = sphincs.spx_keygen()
-    #     sig = sphincs.spx_sign(message, sk)
-    #     assert sphincs.spx_verify(message, sig, pk) is True
+    # Test underlying primitives to see if they are properly initialized and have the right parameters.
+    def test_fors_section_corruption_fails(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = bytearray(sphincs.spx_sign(message, sk))
 
+        start = sphincs.n
+        sig[start] ^= 0xFF  # corrupt FORS part
+
+        assert sphincs.spx_verify(message, bytes(sig), pk) is False
+    
+    def test_hypertree_section_corruption_fails(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = bytearray(sphincs.spx_sign(message, sk))
+
+        start = sphincs.n + sphincs.fors.sig_bytes()
+        sig[start] ^= 0xFF  # corrupt HT part
+
+        assert sphincs.spx_verify(message, bytes(sig), pk) is False
+
+    # Testing message randomization. Same message should lead to different signatures because of randomization.
+    def test_empty_message(self, sphincs):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = sphincs.spx_sign(b"", sk)
+        assert sphincs.spx_verify(b"", sig, pk) is True
+    
+    def test_same_message_different_keys(self, sphincs, message):
+        (sk1, pk1) = sphincs.spx_keygen()
+        (sk2, pk2) = sphincs.spx_keygen()
+
+        sig1 = sphincs.spx_sign(message, sk1)
+        sig2 = sphincs.spx_sign(message, sk2)
+
+        assert sig1 != sig2
+        assert pk1 != pk2
+    
+    def test_deterministic_mode_reproducibility(self, message):
+        sphincs = Sphincs(PARAMS, randomize=False)
+
+        (sk, pk) = sphincs.spx_keygen()
+        sig1 = sphincs.spx_sign(message, sk)
+        sig2 = sphincs.spx_sign(message, sk)
+
+        assert sig1 == sig2
+        assert sphincs.spx_verify(message, sig1, pk)
+
+    # Test Signing and verifying
+    def test_signature_length_correct(self, sphincs, message):
+        sk = sphincs.spx_keygen()[0]
+        sig = sphincs.spx_sign(message, sk)
+        expected_len = (
+            sphincs.n +
+            sphincs.fors.sig_bytes() +
+            sphincs.hypertree.sig_bytes()
+        )
+        assert len(sig) == expected_len
+
+    def test_truncated_signature_fails(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = sphincs.spx_sign(message, sk)
+
+        truncated = sig[:-10]
+        assert sphincs.spx_verify(message, truncated, pk) is False
+
+    def test_sign_then_verify_is_successful(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = sphincs.spx_sign(message, sk)
+        assert sphincs.spx_verify(message, sig, pk) is True
+    
+    def test_forged_signature_fails(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = sphincs.spx_sign(message, sk)
+        forged_sig = sig[:-1] + bytes([sig[-1] ^ 0xFF])  # Flip last byte to forge
+        assert sphincs.spx_verify(message, forged_sig, pk) is False
+    
+    def test_wrong_message_fails(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = sphincs.spx_sign(message, sk)
+        wrong_message = os.urandom(len(message))
+        assert sphincs.spx_verify(wrong_message, sig, pk) is False
+    
+    def test_wrong_public_key_fails(self, sphincs, message):
+        (sk, pk) = sphincs.spx_keygen()
+        sig = sphincs.spx_sign(message, sk)
+        wrong_pk = PK(os.urandom(len(pk.pk_seed)), os.urandom(len(pk.pk_root)))
+        assert sphincs.spx_verify(message, sig, wrong_pk) is False
 
 # ================================================================
 # DGSP Tests
