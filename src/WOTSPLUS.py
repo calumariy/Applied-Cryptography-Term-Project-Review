@@ -1,11 +1,14 @@
+from __future__ import annotations
 import copy
 import math
 import hashlib
 from dataclasses import dataclass
-from typing import List
+from typing import TYPE_CHECKING, List
 from helpers import H, F, PRF, T_len
 from ADRS import ADRS, ADRSType
-from sphincs import SphincsParams
+
+if TYPE_CHECKING:
+    from sphincs import SphincsParams
 
 
 # ==============================
