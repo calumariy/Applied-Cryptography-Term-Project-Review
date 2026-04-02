@@ -2,14 +2,14 @@ import pytest
 import os
 import math
 from ADRS import ADRS, ADRSType
-from WOTSPLUS import WOTSPlus, SphincsParams
+from WOTSPLUS import WOTSPlus
 from XMSS import XMSS
 from XMSS_sig import xmss_sig
 from Hypertree import Hypertree
 from Hypertree_sig import hypertree_sig
 from FORS import FORS
 from FORS_sig import FORS_sig
-from sphincs import Sphincs, SK, PK
+from sphincs import Sphincs, SK, PK, SphincsParams
 
 # ================================================================
 # Test Parameters
@@ -429,7 +429,7 @@ class TestSphincs:
         (sk, pk) = sphincs.spx_keygen()
         sig = bytearray(sphincs.spx_sign(message, sk))
 
-        start = sphincs.n
+        start = sphincs.params.n
         sig[start] ^= 0xFF  # corrupt FORS part
 
         assert sphincs.spx_verify(message, bytes(sig), pk) is False
@@ -438,7 +438,7 @@ class TestSphincs:
         (sk, pk) = sphincs.spx_keygen()
         sig = bytearray(sphincs.spx_sign(message, sk))
 
-        start = sphincs.n + sphincs.fors.sig_bytes()
+        start = sphincs.params.n + sphincs.fors.sig_bytes()
         sig[start] ^= 0xFF  # corrupt HT part
 
         assert sphincs.spx_verify(message, bytes(sig), pk) is False
@@ -474,7 +474,7 @@ class TestSphincs:
         sk = sphincs.spx_keygen()[0]
         sig = sphincs.spx_sign(message, sk)
         expected_len = (
-            sphincs.n +
+            sphincs.params.n +
             sphincs.fors.sig_bytes() +
             sphincs.hypertree.sig_bytes()
         )
