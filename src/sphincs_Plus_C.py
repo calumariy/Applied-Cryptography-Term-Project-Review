@@ -12,7 +12,6 @@ from FORS_Plus_C import FORS_C
 from FORS_sig import FORS_sig
 from helpers import PRFmsg, Hmsg, H
 
-
 # same sk/pk structure as plain sphincs+
 @dataclass
 class SK:
@@ -25,7 +24,6 @@ class SK:
 class PK:
     pk_seed: bytes
     pk_root: bytes
-
 
 # xmss_sig subclass that carries the per-instance wots+c counter
 # wire format: counter (4 bytes) || wots sig || auth path
@@ -47,7 +45,6 @@ class xmss_sig_c(xmss_sig):
         base = xmss_sig.from_bytes(sig_bytes[4:], h, n, wots_len)
         return xmss_sig_c(base.get_sig(), base.get_auth(), counter)
 
-
 # xmss variant using wots+c instead of wots+
 # wots_sign returns (sig, counter) so xmss_sign stores both in xmss_sig_c
 # wots_pkFromSig takes the counter as an extra argument
@@ -59,8 +56,7 @@ class XMSS_C:
         self.wots_c = wots_c
         self.adrs = adrs
 
-    def TreeHash(self, sk_seed: bytes, s: int, z: int,
-                 pk_seed: bytes, adrs: ADRS) -> bytes:
+    def TreeHash(self, sk_seed: bytes, s: int, z: int, pk_seed: bytes, adrs: ADRS) -> bytes:
         if s < 0 or z < 0:
             raise ValueError(f"{s} or/and {z} must be positive")
         if s > 0xFFFFFFFF or z > 0xFFFFFFFF:
@@ -89,8 +85,7 @@ class XMSS_C:
     def xmss_PKgen(self, sk_seed: bytes, pk_seed: bytes, adrs: ADRS) -> bytes:
         return self.TreeHash(sk_seed, 0, self.xmss_h, pk_seed, adrs)
 
-    def xmss_sign(self, M: bytes, sk_seed: bytes, idx: int,
-                  pk_seed: bytes, adrs: ADRS) -> xmss_sig_c:
+    def xmss_sign(self, M: bytes, sk_seed: bytes, idx: int, pk_seed: bytes, adrs: ADRS) -> xmss_sig_c:
         AUTH: List[bytes] = [b""] * self.xmss_h
         for j in range(self.xmss_h):
             k = math.floor(idx / pow(2, j)) ^ 1
@@ -101,8 +96,7 @@ class XMSS_C:
         sig, counter = self.wots_c.wots_sign(M, sk_seed, pk_seed, adrs)
         return xmss_sig_c(sig, AUTH, counter)
 
-    def xmss_pkFromSig(self, idx: int, sig: xmss_sig_c, M: bytes,
-                       pk_seed: bytes, adrs: ADRS) -> bytes:
+    def xmss_pkFromSig(self, idx: int, sig: xmss_sig_c, M: bytes, pk_seed: bytes, adrs: ADRS) -> bytes:
         adrs.set_type(ADRSType.WOTS_HASH)
         adrs.set_key_pair_add(idx)
         AUTH = sig.get_auth()
@@ -126,7 +120,6 @@ class XMSS_C:
         # wots_c.sig_bytes() already includes the 4-byte counter
         return self.wots_c.sig_bytes() + self.xmss_h * self.n
 
-
 # hypertree variant using xmss_c at every layer
 class HypertreeC:
 
@@ -148,8 +141,7 @@ class HypertreeC:
         self.adrs.set_tree_add(0)
         return self.xmss.xmss_PKgen(sk_seed, pk_seed, self.adrs)
 
-    def ht_sign(self, M: bytes, sk_seed: bytes, pk_seed: bytes,
-                tree_index: int, leaf_index: int) -> hypertree_sig:
+    def ht_sign(self, M: bytes, sk_seed: bytes, pk_seed: bytes, tree_index: int, leaf_index: int) -> hypertree_sig:
         self.adrs = ADRS()
         self.adrs.set_layer_add(0)
         self.adrs.set_tree_add(tree_index)
@@ -169,8 +161,7 @@ class HypertreeC:
 
         return hypertree_sig(SIG_HT)
 
-    def ht_verify(self, M: bytes, SIG_HT: hypertree_sig, pk_seed: bytes,
-                  tree_index: int, leaf_index: int, pk_ht: bytes) -> bool:
+    def ht_verify(self, M: bytes, SIG_HT: hypertree_sig, pk_seed: bytes, tree_index: int, leaf_index: int, pk_ht: bytes) -> bool:
         self.adrs = ADRS()
         SIG_TMP = SIG_HT.get_xmss_sigs(0)
         self.adrs.set_layer_add(0)
@@ -189,7 +180,6 @@ class HypertreeC:
 
     def sig_bytes(self) -> int:
         return self.d * self.xmss.sig_bytes()
-
 
 # top-level sphincs+c scheme
 # uses fors+c for the few-time signature and wots+c in all hypertree layers

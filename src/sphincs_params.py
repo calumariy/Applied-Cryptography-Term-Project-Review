@@ -1,7 +1,6 @@
 import math
 from dataclasses import dataclass
 
-
 @dataclass
 class SphincsParams:
     def __init__(self, n, w, h, d, k, t):

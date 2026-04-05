@@ -13,6 +13,9 @@ from FORS_sig import FORS_sig
 from sphincs import Sphincs, SK, PK
 from WOTS_Plus_C import WOTSPlusC, compute_target_sum, check_conditions
 from FORS_Plus_C import FORS_C
+from WOTS_Alpha import WOTSAlpha, compute_Dls, cs_encode, cs_decode, cs_len
+from sphincs_params_Alpha import SphincsParamsAlpha
+from sphincs_Alpha import SphincsAlpha, SK, PK
 
 # ================================================================
 # Test Parameters
@@ -103,6 +106,22 @@ def fors_c():
 def fors_c_message():
     bits = K * int(math.log2(T))
     return os.urandom((bits + 7) // 8)
+
+@pytest.fixture
+def wots_alpha():
+    return WOTSAlpha(PARAMS)
+
+@pytest.fixture
+def scheme():
+    return SphincsAlpha(PARAMS, randomize=False)
+ 
+@pytest.fixture
+def scheme_randomized():
+    return SphincsAlpha(PARAMS, randomize=True)
+ 
+@pytest.fixture
+def keypair(scheme):
+    return scheme.spx_keygen()
 
 # ================================================================
 # XMSS Tests
@@ -1181,13 +1200,353 @@ class TestSphincsC:
         sig_p = sphincs_plain.spx_sign(msg, sk_p)
         assert len(sig_c) < len(sig_p)
         
-    def test_debug_exact_sizes(self, sphincs_c):
-        sphincs_plain = Sphincs(PARAMS)
-        print(f"\nplain fors sig_bytes: {sphincs_plain.fors.sig_bytes()}")
-        print(f"plain ht sig_bytes: {sphincs_plain.hypertree.sig_bytes()}")
-        print(f"plain total: {sphincs_plain.n + sphincs_plain.fors.sig_bytes() + sphincs_plain.hypertree.sig_bytes()}")
-        print(f"\nc fors sig_bytes: {sphincs_c.fors_c.sig_bytes()}")
-        print(f"c ht sig_bytes: {sphincs_c.hypertree.sig_bytes()}")
-        print(f"c wots ell: {sphincs_c.wots_c.ell}")
-        print(f"c len1: {sphincs_c.params.len1}")
-        print(f"c len (plain): {sphincs_c.params.len}")
+# ================================================================
+# compute_Dls tests
+# ================================================================
+ 
+class TestComputeDls:
+ 
+    # base case: D[0][0] must be 1, everything else in row 0 must be 0
+    def test_base_case(self):
+        D = compute_Dls(3, 4)
+        assert D[0][0] == 1
+        assert all(D[0][s] == 0 for s in range(1, 10))
+ 
+    # for l=1 each digit j in [0, w-1] has exactly one vector, so D[1][j] = 1
+    def test_single_element_row(self):
+        w = 4
+        D = compute_Dls(1, w)
+        for j in range(w):
+            assert D[1][j] == 1
+ 
+    # for w=2 (binary case) D[l][s] == C(l, s), i.e. binomial coefficients
+    def test_binary_case_matches_binomial(self):
+        from math import comb
+        l, w = 6, 2
+        D = compute_Dls(l, w)
+        for s in range(l + 1):
+            assert D[l][s] == comb(l, s)
+ 
+    # the sum of all D[l][s] for s in 0..l*(w-1) must equal w^l
+    def test_total_count_equals_w_power_l(self):
+        l, w = 4, 3
+        D = compute_Dls(l, w)
+        assert sum(D[l][s] for s in range(l * (w - 1) + 1)) == w ** l
+ 
+    # the distribution is symmetric: D[l][s] == D[l][l*(w-1)-s]
+    def test_symmetry(self):
+        l, w = 5, 4
+        D = compute_Dls(l, w)
+        max_s = l * (w - 1)
+        for s in range(max_s + 1):
+            assert D[l][s] == D[l][max_s - s]
+ 
+ 
+# ================================================================
+# cs_encode / cs_decode tests
+# ================================================================
+ 
+class TestCsEncodeDecode:
+ 
+    # every codeword produced by cs_encode must sum to target_sum
+    def test_encode_sum_is_target(self):
+        l, w = 3, 4
+        target_sum = (l * (w - 1)) // 2
+        D = compute_Dls(l, w)
+        size = D[l][target_sum]
+        for x in range(size):
+            v = cs_encode(x, l, w, target_sum, D)
+            assert sum(v) == target_sum
+ 
+    # every digit in the codeword must be in [0, w-1]
+    def test_encode_digits_in_range(self):
+        l, w = 3, 4
+        target_sum = (l * (w - 1)) // 2
+        D = compute_Dls(l, w)
+        size = D[l][target_sum]
+        for x in range(size):
+            v = cs_encode(x, l, w, target_sum, D)
+            assert all(0 <= d <= w - 1 for d in v)
+ 
+    # cs_encode must be injective: no two distinct x map to the same codeword
+    def test_encode_is_injective(self):
+        l, w = 3, 4
+        target_sum = (l * (w - 1)) // 2
+        D = compute_Dls(l, w)
+        size = D[l][target_sum]
+        codewords = [tuple(cs_encode(x, l, w, target_sum, D)) for x in range(size)]
+        assert len(set(codewords)) == size
+ 
+    # cs_decode must invert cs_encode exactly
+    def test_decode_inverts_encode(self):
+        l, w = 3, 4
+        target_sum = (l * (w - 1)) // 2
+        D = compute_Dls(l, w)
+        size = D[l][target_sum]
+        for x in range(size):
+            v = cs_encode(x, l, w, target_sum, D)
+            assert cs_decode(v, l, w, target_sum, D) == x
+ 
+    # the number of distinct codewords must equal D[l][target_sum] (exhaustive check for small params)
+    def test_encode_covers_full_antichain(self):
+        l, w = 3, 4
+        target_sum = (l * (w - 1)) // 2
+        D = compute_Dls(l, w)
+        size = D[l][target_sum]
+        expected = {
+            tuple(v) for v in
+            (cs_encode(x, l, w, target_sum, D) for x in range(size))
+        }
+        assert len(expected) == size
+ 
+ 
+# ================================================================
+# cs_len tests
+# ================================================================
+ 
+class TestCsLen:
+ 
+    # cs_len must return a value strictly less than the standard wots+ length l1+l2
+    def test_shorter_than_wots_len(self):
+        params = PARAMS
+        l = cs_len(params.n, params.w)
+        assert l < params.len
+ 
+    # the antichain at the returned l must be large enough to cover 2^(8n) messages
+    def test_antichain_covers_message_space(self):
+        n, w = N, W
+        l = cs_len(n, w)
+        D = compute_Dls(l, w)
+        target_sum = (l * (w - 1)) // 2
+        assert D[l][target_sum] >= (1 << (8 * n))
+ 
+    # check that l-1 would not be sufficient, confirming cs_len is minimal
+    def test_is_minimal(self):
+        n, w = N, W
+        l = cs_len(n, w)
+        if l > 1:
+            D_smaller = compute_Dls(l - 1, w)
+            target_sum = ((l - 1) * (w - 1)) // 2
+            assert D_smaller[l - 1][target_sum] < (1 << (8 * n))
+ 
+    # spot-check against table 1 from the paper: n=16, w=16 should give l=34
+    def test_known_value_128bit_w16(self):
+        assert cs_len(16, 16) == 34
+ 
+    # spot-check: n=32, w=16 should give l=66
+    def test_known_value_256bit_w16(self):
+        assert cs_len(32, 16) == 66
+ 
+ 
+# ================================================================
+# WOTSAlpha tests
+# ================================================================
+ 
+class TestWOTSAlpha:
+ 
+    # cs_l must be one less than the standard wots+ len for these params
+    def test_l_is_shorter_than_standard(self, wots_alpha):
+        assert wots_alpha.l == PARAMS.len - 1
+ 
+    # target_sum must equal floor(l*(w-1)/2)
+    def test_target_sum_value(self, wots_alpha):
+        expected = (wots_alpha.l * (W - 1)) // 2
+        assert wots_alpha.target_sum == expected
+ 
+    # pkgen must return exactly n bytes
+    def test_pkgen_returns_n_bytes(self, wots_alpha, sk_seed, pk_seed):
+        pk = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        assert isinstance(pk, bytes)
+        assert len(pk) == N
+ 
+    # pkgen must be deterministic for the same inputs
+    def test_pkgen_deterministic(self, wots_alpha, sk_seed, pk_seed):
+        pk1 = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        pk2 = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        assert pk1 == pk2
+ 
+    # different sk_seeds must produce different public keys
+    def test_pkgen_differs_for_different_sk(self, wots_alpha, pk_seed):
+        pk1 = wots_alpha.wots_PKgen(os.urandom(N), pk_seed, ADRS())
+        pk2 = wots_alpha.wots_PKgen(os.urandom(N), pk_seed, ADRS())
+        assert pk1 != pk2
+ 
+    # sign must return exactly l signature elements each of length n
+    def test_sign_returns_correct_length(self, wots_alpha, message, sk_seed, pk_seed):
+        sig = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        assert len(sig) == wots_alpha.l
+        assert all(len(s) == N for s in sig)
+ 
+    # sign must be deterministic for the same inputs
+    def test_sign_deterministic(self, wots_alpha, message, sk_seed, pk_seed):
+        sig1 = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        sig2 = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        assert sig1 == sig2
+ 
+    # different messages must produce different signatures
+    def test_sign_differs_for_different_messages(self, wots_alpha, sk_seed, pk_seed):
+        sig1 = wots_alpha.wots_sign(os.urandom(N), sk_seed, pk_seed, ADRS())
+        sig2 = wots_alpha.wots_sign(os.urandom(N), sk_seed, pk_seed, ADRS())
+        assert sig1 != sig2
+ 
+    # pkfromsig must return exactly n bytes
+    def test_pkfromsig_returns_n_bytes(self, wots_alpha, message, sk_seed, pk_seed):
+        sig = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        pk = wots_alpha.wots_pkFromSig(sig, message, pk_seed, ADRS())
+        assert isinstance(pk, bytes)
+        assert len(pk) == N
+ 
+    # core consistency: recovered pk must match the real pk
+    def test_pkfromsig_matches_pkgen(self, wots_alpha, message, sk_seed, pk_seed):
+        pk = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        sig = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        recovered = wots_alpha.wots_pkFromSig(sig, message, pk_seed, ADRS())
+        assert recovered == pk
+ 
+    # wrong message must cause pk recovery to fail
+    def test_pkfromsig_fails_on_wrong_message(self, wots_alpha, message, sk_seed, pk_seed):
+        pk = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        sig = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        recovered = wots_alpha.wots_pkFromSig(sig, os.urandom(N), pk_seed, ADRS())
+        assert recovered != pk
+ 
+    # wrong pk_seed must cause pk recovery to fail
+    def test_pkfromsig_fails_on_wrong_pk_seed(self, wots_alpha, message, sk_seed, pk_seed):
+        pk = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        sig = wots_alpha.wots_sign(message, sk_seed, pk_seed, ADRS())
+        recovered = wots_alpha.wots_pkFromSig(sig, message, os.urandom(N), ADRS())
+        assert recovered != pk
+ 
+    # sig_bytes must equal l * n
+    def test_sig_bytes(self, wots_alpha):
+        assert wots_alpha.sig_bytes() == wots_alpha.l * N
+ 
+    # sig_bytes must be strictly smaller than the standard wots+ sig size
+    def test_sig_bytes_smaller_than_standard(self, wots_alpha):
+        standard_sig_bytes = PARAMS.len * N
+        assert wots_alpha.sig_bytes() < standard_sig_bytes
+ 
+    # verify the codeword used during signing actually sums to target_sum
+    def test_sign_codeword_sums_to_target(self, wots_alpha, message):
+        from WOTS_Alpha import cs_encode, compute_Dls
+        x = int.from_bytes(message, "big") % wots_alpha._D[wots_alpha.l][wots_alpha.target_sum]
+        codeword = cs_encode(x, wots_alpha.l, W, wots_alpha.target_sum, wots_alpha._D)
+        assert sum(codeword) == wots_alpha.target_sum
+ 
+    # run sign+verify for several random messages to catch any edge cases
+    def test_sign_verify_multiple_messages(self, wots_alpha, sk_seed, pk_seed):
+        pk = wots_alpha.wots_PKgen(sk_seed, pk_seed, ADRS())
+        for _ in range(10):
+            m = os.urandom(N)
+            sig = wots_alpha.wots_sign(m, sk_seed, pk_seed, ADRS())
+            recovered = wots_alpha.wots_pkFromSig(sig, m, pk_seed, ADRS())
+            assert recovered == pk
+            
+# ================================================================
+# SphincsAlpha tests
+# ================================================================
+ 
+class TestSphincsAlpha:
+ 
+    # keygen must return sk and pk with correct types
+    def test_keygen_returns_correct_types(self, scheme):
+        sk, pk = scheme.spx_keygen()
+        assert isinstance(sk, SK)
+        assert isinstance(pk, PK)
+ 
+    # all key fields must be n bytes
+    def test_keygen_field_sizes(self, scheme):
+        sk, pk = scheme.spx_keygen()
+        assert len(sk.sk_seed) == N
+        assert len(sk.sk_prf) == N
+        assert len(sk.pk_seed) == N
+        assert len(sk.pk_root) == N
+        assert len(pk.pk_seed) == N
+        assert len(pk.pk_root) == N
+ 
+    # different keygens must produce different keys
+    def test_keygen_produces_unique_keys(self, scheme):
+        _, pk1 = scheme.spx_keygen()
+        _, pk2 = scheme.spx_keygen()
+        assert pk1.pk_root != pk2.pk_root
+ 
+    # sign must return bytes
+    def test_sign_returns_bytes(self, scheme, keypair):
+        sk, pk = keypair
+        sig = scheme.spx_sign(b"test message", sk)
+        assert isinstance(sig, bytes)
+ 
+    # signature length must match sig_bytes()
+    def test_sign_correct_length(self, scheme, keypair):
+        sk, pk = keypair
+        sig = scheme.spx_sign(b"test message", sk)
+        assert len(sig) == scheme.sig_bytes()
+ 
+    # deterministic mode must produce the same signature each time
+    def test_sign_deterministic(self, scheme, keypair):
+        sk, pk = keypair
+        msg = b"same message"
+        sig1 = scheme.spx_sign(msg, sk)
+        sig2 = scheme.spx_sign(msg, sk)
+        assert sig1 == sig2
+ 
+    # randomized mode must produce different signatures each time
+    def test_sign_randomized_differs(self, scheme_randomized):
+        sk, pk = scheme_randomized.spx_keygen()
+        msg = b"same message"
+        sig1 = scheme_randomized.spx_sign(msg, sk)
+        sig2 = scheme_randomized.spx_sign(msg, sk)
+        assert sig1 != sig2
+ 
+    # verify must accept a valid signature
+    def test_verify_accepts_valid_sig(self, scheme, keypair):
+        sk, pk = keypair
+        msg = b"valid message"
+        sig = scheme.spx_sign(msg, sk)
+        assert scheme.spx_verify(msg, sig, pk)
+ 
+    # verify must reject a tampered message
+    def test_verify_rejects_wrong_message(self, scheme, keypair):
+        sk, pk = keypair
+        sig = scheme.spx_sign(b"original", sk)
+        assert not scheme.spx_verify(b"tampered", sig, pk)
+ 
+    # verify must reject a signature under the wrong public key
+    def test_verify_rejects_wrong_pk(self, scheme, keypair):
+        sk, pk = keypair
+        msg = b"test message"
+        sig = scheme.spx_sign(msg, sk)
+        _, other_pk = scheme.spx_keygen()
+        assert not scheme.spx_verify(msg, sig, other_pk)
+ 
+    # verify must reject a bitflipped signature
+    def test_verify_rejects_corrupted_sig(self, scheme, keypair):
+        sk, pk = keypair
+        msg = b"test message"
+        sig = bytearray(scheme.spx_sign(msg, sk))
+        sig[N] ^= 0xFF
+        assert not scheme.spx_verify(msg, bytes(sig), pk)
+ 
+    # alpha signature must be strictly smaller than the standard sphincs+ signature for the same params
+    def test_sig_bytes_smaller_than_standard(self, scheme):
+        standard = Sphincs(SphincsParams(n=N, w=W, h=H, d=D, k=K, t=T))
+        _, standard_pk = standard.spx_keygen()
+        standard_sig = standard.spx_sign(b"test", standard.sk)
+        assert scheme.sig_bytes() < len(standard_sig)
+    
+    # as above just tested differently for sanity
+    def test_sig_smaller_than_standard(self, scheme, keypair):
+        sk, pk = keypair
+        alpha_sig = scheme.spx_sign(b"test", sk)
+        standard = Sphincs(SphincsParams(n=N, w=W, h=H, d=D, k=K, t=T), randomize=False)
+        standard_sk, _ = standard.spx_keygen()
+        standard_sig = standard.spx_sign(b"test", standard_sk)
+        assert len(alpha_sig) < len(standard_sig)
+ 
+    # run sign+verify for several random messages
+    def test_sign_verify_multiple_messages(self, scheme, keypair):
+        sk, pk = keypair
+        for _ in range(5):
+            msg = os.urandom(32)
+            sig = scheme.spx_sign(msg, sk)
+            assert scheme.spx_verify(msg, sig, pk)

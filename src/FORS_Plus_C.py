@@ -5,7 +5,6 @@ from ADRS import ADRS, ADRSType
 from helpers import H, F, PRF, T_len
 from FORS_sig import FORS_sig
 
-
 class FORS_C:
     # FORS+C variant from SPHINCS+C paper section 4.
     # searches for a counter so the last FORS tree always opens leaf 0.
@@ -41,8 +40,7 @@ class FORS_C:
         skADRS.set_tree_index(index)
         return PRF(sk_seed, skADRS, self.n)
 
-    def fors_treehash(self, sk_seed: bytes, s: int, z: int,
-                      pk_seed: bytes, adrs: ADRS) -> bytes:
+    def fors_treehash(self, sk_seed: bytes, s: int, z: int, pk_seed: bytes, adrs: ADRS) -> bytes:
         # identical to FORS.fors_treehash
         if s < 0 or z < 0:
             raise ValueError(f"{s} or/and {z} must be a positive integer value")
@@ -66,8 +64,7 @@ class FORS_C:
             stack.append((node, height))
         return stack.pop()[0]
 
-    def _hash_with_counter(self, M: bytes, counter: int,
-                           pk_seed: bytes, adrs: ADRS) -> bytes:
+    def _hash_with_counter(self, M: bytes, counter: int, pk_seed: bytes, adrs: ADRS) -> bytes:
         # shared helper for counter-based digest
         shake = hashlib.shake_256()
         shake.update(pk_seed)
@@ -76,8 +73,7 @@ class FORS_C:
         shake.update(M)
         return shake.digest(self.n)
 
-    def find_counter(self, M: bytes, pk_seed: bytes,
-                     adrs: ADRS) -> Tuple[int, bytes]:
+    def find_counter(self, M: bytes, pk_seed: bytes, adrs: ADRS) -> Tuple[int, bytes]:
         # search for a counter so the last tree index in the digest is 0
         counter = 0
         while True:
@@ -102,8 +98,7 @@ class FORS_C:
         forspkADRS.set_key_pair_add(adrs.get_key_pair_add())
         return T_len(pk_seed, forspkADRS, root, self.n)
 
-    def fors_sign(self, M: bytes, sk_seed: bytes,
-                  pk_seed: bytes, adrs: ADRS) -> Tuple[FORS_sig, int]:
+    def fors_sign(self, M: bytes, sk_seed: bytes, pk_seed: bytes, adrs: ADRS) -> Tuple[FORS_sig, int]:
         # find counter so last tree opens leaf 0, sign first k-1 trees normally.
         # last tree: store sk for leaf 0 only, drop the auth path (replaced by counter).
         # precompute and store the last tree root so the verifier does not need sk_seed.
@@ -137,8 +132,7 @@ class FORS_C:
 
         return FORS_sig(sk_list, auth_list, last_root), counter
 
-    def fors_pkFromSig(self, sig: FORS_sig, M: bytes, counter: int,
-                       pk_seed: bytes, adrs: ADRS) -> bytes:
+    def fors_pkFromSig(self, sig: FORS_sig, M: bytes, counter: int, pk_seed: bytes, adrs: ADRS) -> bytes:
         # verify counter is valid, recover first k-1 roots normally,
         # then use the precomputed last tree root stored in the signature.
         # no sk_seed required — this is a fully public verification.

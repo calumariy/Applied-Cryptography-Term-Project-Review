@@ -5,7 +5,6 @@ from helpers import F, PRF, T_len
 from ADRS import ADRS, ADRSType
 from sphincs_params import SphincsParams
 
-
 # base_w conversion
 def base_w(X: bytes, w: int, out_len: int) -> List[int]:
     log_w = int(math.log2(w))
@@ -19,11 +18,9 @@ def base_w(X: bytes, w: int, out_len: int) -> List[int]:
     digits.reverse()
     return digits
 
-
 # fixed target sum S_w,n = floor(len1 * (w-1) / 2)
 def compute_target_sum(len1: int, w: int) -> int:
     return (len1 * (w - 1)) // 2
-
 
 # check digest digits sum to target and first z digits are zero
 def check_conditions(digits: List[int], target_sum: int, z: int) -> bool:
@@ -33,7 +30,6 @@ def check_conditions(digits: List[int], target_sum: int, z: int) -> bool:
         if digits[i] != 0:
             return False
     return True
-
 
 class WOTSPlusC:
     # WOTS+C variant from SPHINCS+C paper section 3.
@@ -48,8 +44,7 @@ class WOTSPlusC:
         self.ell = params.len1 - z
         self.target_sum = compute_target_sum(params.len1, params.w)
 
-    def chain(self, X: bytes, i: int, s: int,
-              PK_seed: bytes, ADRS_obj: ADRS) -> bytes:
+    def chain(self, X: bytes, i: int, s: int, PK_seed: bytes, ADRS_obj: ADRS) -> bytes:
         # chaining function, identical to WOTSPlus.chain
         n = self.params.n
         w = self.params.w
@@ -74,8 +69,7 @@ class WOTSPlusC:
             sk.append(PRF(SK_seed, skADRS, n))
         return sk
 
-    def wots_PKgen(self, SK_seed: bytes, PK_seed: bytes,
-                   ADRS_obj: ADRS) -> bytes:
+    def wots_PKgen(self, SK_seed: bytes, PK_seed: bytes, ADRS_obj: ADRS) -> bytes:
         # generate public key, only ell chains
         n = self.params.n
         w = self.params.w
@@ -95,8 +89,7 @@ class WOTSPlusC:
         wotspkADRS.set_key_pair_add(ADRS_obj.get_key_pair_add())
         return T_len(PK_seed, wotspkADRS, tmp, n)
 
-    def find_counter(self, M: bytes, PK_seed: bytes,
-                     ADRS_obj: ADRS) -> Tuple[int, List[int]]:
+    def find_counter(self, M: bytes, PK_seed: bytes, ADRS_obj: ADRS) -> Tuple[int, List[int]]:
         # search for a counter so that H(counter || M) satisfies both conditions
         n = self.params.n
         w = self.params.w
@@ -115,8 +108,7 @@ class WOTSPlusC:
             if counter > 0xFFFFFFFF:
                 raise RuntimeError("counter search exceeded 2^32, check parameters")
 
-    def wots_sign(self, M: bytes, SK_seed: bytes, PK_seed: bytes,
-                  ADRS_obj: ADRS) -> Tuple[List[bytes], int]:
+    def wots_sign(self, M: bytes, SK_seed: bytes, PK_seed: bytes, ADRS_obj: ADRS) -> Tuple[List[bytes], int]:
         # find a valid counter then sign only the ell non-zero chains
         n = self.params.n
         w = self.params.w
@@ -135,8 +127,7 @@ class WOTSPlusC:
             sig.append(self.chain(sk, 0, digits[i], PK_seed, ADRS_obj))
         return sig, counter
 
-    def wots_pkFromSig(self, sig: List[bytes], M: bytes, counter: int,
-                       PK_seed: bytes, ADRS_obj: ADRS) -> bytes:
+    def wots_pkFromSig(self, sig: List[bytes], M: bytes, counter: int, PK_seed: bytes, ADRS_obj: ADRS) -> bytes:
         # recompute digest from counter, verify conditions, reconstruct public key
         n = self.params.n
         w = self.params.w

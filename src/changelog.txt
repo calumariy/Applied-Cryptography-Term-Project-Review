@@ -26,3 +26,16 @@ The above follows the SHAKE256 functionality (only the most simple variant, see 
 5. Extended test.py with full test coverage for WOTS+C, FORS+C, xmss_sig_c, XMSS_C, 
    HypertreeC and SphincsC including roundtrip, corruption, truncation, deterministic mode and signature size comparisons against plain SPHINCS+. 
    All tests passing.
+
+6-4-2026 Lachlan's Changes
+1. Implemented constant-sum WOTS+ (WOTS_Alpha.py) based on section 3 of the paper
+   "Revisiting the Constant-sum Winternitz One-time Signature with Applications to SPHINCS+ and XMSS" (2022-059).
+   Replaces the base_w + checksum encoding with constant-sum encoding over the antichain C_s,
+   reducing the codeword length from l1+l2 to cs_l (typically l1+l2-1) and removing one chain per WOTS+ call.
+2. Implemented SphincsParamsAlpha (sphincs_params_Alpha.py) extending SphincsParams with a cs_l field
+3. Implemented SPHINCS-alpha (sphincs_alpha.py) wiring WOTSAlpha through XMSS_Alpha and HypertreeAlpha.
+   SphincsAlpha is a drop-in replacement for Sphincs with identical keygen/sign/verify interface.
+   Signature size is reduced by d * (l - cs_l) * n bytes vs standard SPHINCS+.
+4. Added test coverage in test_wots_alpha.py for the encoding primitives (compute_Dls, cs_encode, cs_decode, cs_len)
+   and WOTSAlpha, and test_sphincs_alpha.py for the full scheme including a direct signature size comparison
+   against plain SPHINCS+. All tests passing.
