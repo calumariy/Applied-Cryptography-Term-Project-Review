@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import List
 from helpers import H, F, PRF, T_len
 from ADRS import ADRS, ADRSType
-from sphincs import SphincsParams
+from sphincs_params import SphincsParams
 
 
 # ==============================

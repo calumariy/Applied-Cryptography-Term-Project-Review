@@ -7,3 +7,22 @@ it uses this new ADRS.py class
 5. Added preliminary hashing functions (see helpers.py) with a dedicated H, F, PRF and T_len (also called T_k)
 The above follows the SHAKE256 functionality (only the most simple variant, see page 39 or dot point 7.2.1 for more information).
 6. Added changelog to better log changes made to the current SPHINCS+ implementation.
+
+5-4-2026 Lachlan's Changes
+1. Extracted SphincsParams from sphincs.py into its own file sphincs_params.py
+2. Implemented WOTS+C (WOTS_Plus_C.py) based on section 3 of the SPHINCS+C paper (2022-778). 
+   Replaces the checksum chains with a counter search so the digest always sums to a fixed target value, 
+   removing len2 chains from the signature. supports an optional z parameter to force the first z digits to zero, 
+   dropping those chains too. sig_bytes() includes the 4-byte counter.
+3. Implemented FORS+C (FORS_Plus_C.py) based on section 4 of the paper. 
+   Searches for a counter so the last tree always opens leaf 0, dropping its auth path from the signature. 
+   The last tree root is precomputed by the signer and stored in the signature so verification remains fully public 
+   (no sk_seed required at verify time). Added last_root field to FORS_sig.py with optional backwards-compatible default.
+4. Implemented SPHINCS+C (sphincs_Plus_C.py) based on section 5 of the paper. 
+   Introduces SphincsParamsC (sphincs_params_Plus_C.py) extending SphincsParams with t_prime and z fields. 
+   Introduces xmss_sig_c subclassing xmss_sig to carry the per-instance WOTS+C counter, 
+   and XMSS_C and HypertreeC classes that use WOTSPlusC throughout all hypertree layers. 
+   The top-level SphincsC class wires FORS+C and HypertreeC together with correct serialization of all counters into the signature byte stream.
+5. Extended test.py with full test coverage for WOTS+C, FORS+C, xmss_sig_c, XMSS_C, 
+   HypertreeC and SphincsC including roundtrip, corruption, truncation, deterministic mode and signature size comparisons against plain SPHINCS+. 
+   All tests passing.
