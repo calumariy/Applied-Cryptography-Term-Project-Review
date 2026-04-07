@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from sphincs import Sphincs, SphincsParams
 import bench_keygen
-import bench_sign
-import bench_verify
+import bench_signing
+import bench_verification
 import bench_sig_size
 
 PARAM_SETS = [
@@ -41,8 +41,8 @@ def run_all():
         params = SphincsParams(n=n, w=w, h=h, d=d, k=k, t=t)
 
         kg   = bench_keygen.run(label, params, N_RUNS, N_WARMUP)
-        sg   = bench_sign.run(label, params, N_RUNS, N_WARMUP)
-        vf   = bench_verify.run(label, params, N_RUNS, N_WARMUP)
+        sg   = bench_signing.run(label, params, N_RUNS, N_WARMUP)
+        vf   = bench_verification.run(label, params, N_RUNS, N_WARMUP)
         sz   = bench_sig_size.run(label, params)
 
         print(f"\n  {label}")
@@ -53,7 +53,7 @@ def run_all():
               f"{'Stdev (ms)':>12} {'Min (ms)':>10} {'Max (ms)':>10}")
         print(f"  {'─'*74}")
 
-        for name, r in [("Keygen", kg), ("Sign", sg), ("Verify", vf)]:
+        for name, r in [("Keygen", kg), ("Signing", sg), ("Verification", vf)]:
             times = r["times"]
             print(f"  {name:<12} "
                   f"{statistics.median(times)*1000:>12.3f} "

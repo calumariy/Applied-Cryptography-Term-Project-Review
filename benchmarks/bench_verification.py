@@ -41,11 +41,13 @@ def run(label: str, params: SphincsParams, n_runs: int = N_RUNS, n_warmup: int =
         sphincs.spx_verify(MESSAGE, sig, pk)
 
     times = []
+    results = []
     for _ in range(n_runs):
         t0 = time.perf_counter()
-        sphincs.spx_verify(MESSAGE, sig, pk)
+        ok = sphincs.spx_verify(MESSAGE, sig, pk)
         t1 = time.perf_counter()
         times.append(t1 - t0)
+        results.append(ok)
 
     sk_size = len(sk.sk_seed) + len(sk.sk_prf) + len(sk.pk_seed) + len(sk.pk_root)
     pk_size = len(pk.pk_seed) + len(pk.pk_root)
@@ -53,6 +55,7 @@ def run(label: str, params: SphincsParams, n_runs: int = N_RUNS, n_warmup: int =
         "label":   label,
         "params":  params,
         "times":   times,
+        "all_ok":  all(results),
         "sig_size": len(sig),
         "sk_size":  sk_size,
         "pk_size":  pk_size
