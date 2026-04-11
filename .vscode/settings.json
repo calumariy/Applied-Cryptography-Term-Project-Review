@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./Applied-Cryptography-Term-Project/src"
+    ]
+}

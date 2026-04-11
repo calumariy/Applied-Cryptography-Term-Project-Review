@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, List
 from helpers import H, F, PRF, T_len
 from ADRS import ADRS, ADRSType
-
-if TYPE_CHECKING:
-    from sphincs import SphincsParams
+from sphincs_params import SphincsParams
 
 
 # ==============================

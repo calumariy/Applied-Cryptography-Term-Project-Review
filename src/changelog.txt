@@ -7,3 +7,44 @@ it uses this new ADRS.py class
 5. Added preliminary hashing functions (see helpers.py) with a dedicated H, F, PRF and T_len (also called T_k)
 The above follows the SHAKE256 functionality (only the most simple variant, see page 39 or dot point 7.2.1 for more information).
 6. Added changelog to better log changes made to the current SPHINCS+ implementation.
+
+5-4-2026 Lachlan's Changes
+1. Extracted SphincsParams from sphincs.py into its own file sphincs_params.py
+2. Implemented WOTS+C (WOTS_Plus_C.py) based on section 3 of the SPHINCS+C paper (2022-778). 
+   Replaces the checksum chains with a counter search so the digest always sums to a fixed target value, 
+   removing len2 chains from the signature. supports an optional z parameter to force the first z digits to zero, 
+   dropping those chains too. sig_bytes() includes the 4-byte counter.
+3. Implemented FORS+C (FORS_Plus_C.py) based on section 4 of the paper. 
+   Searches for a counter so the last tree always opens leaf 0, dropping its auth path from the signature. 
+   The last tree root is precomputed by the signer and stored in the signature so verification remains fully public 
+   (no sk_seed required at verify time). Added last_root field to FORS_sig.py with optional backwards-compatible default.
+4. Implemented SPHINCS+C (sphincs_Plus_C.py) based on section 5 of the paper. 
+   Introduces SphincsParamsC (sphincs_params_Plus_C.py) extending SphincsParams with t_prime and z fields. 
+   Introduces xmss_sig_c subclassing xmss_sig to carry the per-instance WOTS+C counter, 
+   and XMSS_C and HypertreeC classes that use WOTSPlusC throughout all hypertree layers. 
+   The top-level SphincsC class wires FORS+C and HypertreeC together with correct serialization of all counters into the signature byte stream.
+5. Extended test.py with full test coverage for WOTS+C, FORS+C, xmss_sig_c, XMSS_C, 
+   HypertreeC and SphincsC including roundtrip, corruption, truncation, deterministic mode and signature size comparisons against plain SPHINCS+. 
+   All tests passing.
+
+6-4-2026 Lachlan's Changes
+1. Implemented constant-sum WOTS+ (WOTS_Alpha.py) based on section 3 of the paper
+   "Revisiting the Constant-sum Winternitz One-time Signature with Applications to SPHINCS+ and XMSS" (2022-059).
+   Replaces the base_w + checksum encoding with constant-sum encoding over the antichain C_s,
+   reducing the codeword length from l1+l2 to cs_l (typically l1+l2-1) and removing one chain per WOTS+ call.
+2. Implemented SphincsParamsAlpha (sphincs_params_Alpha.py) extending SphincsParams with a cs_l field
+3. Implemented SPHINCS-alpha (sphincs_alpha.py) wiring WOTSAlpha through XMSS_Alpha and HypertreeAlpha.
+   SphincsAlpha is a drop-in replacement for Sphincs with identical keygen/sign/verify interface.
+   Signature size is reduced by d * (l - cs_l) * n bytes vs standard SPHINCS+.
+4. Added test coverage in test_wots_alpha.py for the encoding primitives (compute_Dls, cs_encode, cs_decode, cs_len)
+   and WOTSAlpha, and test_sphincs_alpha.py for the full scheme including a direct signature size comparison
+   against plain SPHINCS+. All tests passing.
+
+10-04-2026
+1. Modified run all to become a parameter optimisation feature which outputs the data into a csv file.
+and highlights the important data through stdout. Important context, the csv data is already ordered and ranked
+The CSV Data is naturally ordered by mean_ms except for sig_size which is ordered by sig_size.
+2. Added benchmarking copies to the other varieties of SPHINCS such as SPHINCSAlpha and SPHINCS+C
+3. Refactored a bunch of the code in benchmarking so that it becomes slightly more cleaner (organised benchmarking
+files as well)
+4. had to add an extra 64 w parameter to allow for more equitable testing across the different SPHINCS variations.

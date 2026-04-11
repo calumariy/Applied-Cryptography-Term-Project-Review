@@ -3,6 +3,7 @@ import os
 from typing import Tuple
 from dataclasses import dataclass
 from ADRS import ADRS, ADRSType
+from sphincs_params import SphincsParams
 from WOTSPLUS import WOTSPlus
 from Hypertree import Hypertree
 from Hypertree_sig import hypertree_sig
@@ -14,29 +15,6 @@ import math
 # ===================================================================
 # Useful data classes for SPHINCS+ parameters, keys, and signatures
 # ===================================================================
-
-@dataclass
-class SphincsParams:
-    def __init__(self, n, w, h, d, k, t):
-        if n <= 0 or w <= 0 or h <= 0 or d <= 0 or k <= 0 or t <= 0:
-            raise ValueError("All parameters must be positive")
-
-        if h % d != 0:
-            raise ValueError("h must be divisible by d")
-
-        if (t & (t - 1)) != 0:
-            raise ValueError("t must be a power of 2")
-
-        self.n = n
-        self.w = w
-        self.h = h
-        self.d = d
-        self.k = k
-        self.t = t
-
-        self.len1 = math.ceil(8 * self.n / math.log2(self.w))
-        self.len2 = math.floor(math.log2(self.len1 * (self.w - 1)) / math.log2(self.w)) + 1
-        self.len  = self.len1 + self.len2
 
 @dataclass
 class SK:
@@ -69,6 +47,31 @@ class Sphincs:
         self.wots = WOTSPlus(self.params)
         self.fors = FORS(self.params.n, self.params.k, self.params.t, self.adrs)
         self.hypertree = Hypertree(self.params.h, self.params.d, self.params.w, self.params.n, self.wots, self.adrs)
+
+    # Property accessors for parameters (convenience for tests and users)
+    @property
+    def n(self):
+        return self.params.n
+
+    @property
+    def w(self):
+        return self.params.w
+
+    @property
+    def h(self):
+        return self.params.h
+
+    @property
+    def d(self):
+        return self.params.d
+
+    @property
+    def k(self):
+        return self.params.k
+
+    @property
+    def t(self):
+        return self.params.t
 
     def spx_keygen(self) -> Tuple[SK, PK]:
 

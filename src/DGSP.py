@@ -3,7 +3,7 @@ import os
 from typing import List, Tuple
 
 from ADRS import ADRS
-from WOTSPLUS import SphincsParams
+from sphincs_params import SphincsParams
 from XMSS import XMSS
 from Hypertree import Hypertree
 from FORS import FORS
