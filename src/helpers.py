@@ -1,6 +1,7 @@
 import hashlib
 from ADRS import ADRS, ADRSType
-from typing import List
+from typing import List, Tuple
+from Crypto.Cipher import AES # pip install pycryptodome (this is for the strong pseudo random permutation in the manager's ResponseM, Revoke, and Open methods)
 
 def toByte(x: int, y: int) -> bytes:
     return x.to_bytes(y, byteorder='big')
@@ -75,3 +76,36 @@ def Hmsg(randomizer: bytes, PK_seed: bytes, PK_root: bytes, message: bytes) -> b
     shake.update(PK_root)
     shake.update(message)
     return shake.digest(len(PK_seed))
+
+def H_simple(data: bytes, n: int) -> bytes:
+    shake = hashlib.shake_256()
+    shake.update(data)
+    return shake.digest(n)
+
+# ==============================
+# SPRP (AES-128) for ζ_{id,j} = E(msk2, id ‖ j)
+# Used by the manager in ResponseM, Revoke, and Open.
+# ==============================
+ 
+def _encode_id(user_id: int) -> bytes:
+    """Encode a user id as an 8-byte big-endian integer (supports 2^64 users)."""
+    return user_id.to_bytes(8, 'big')
+ 
+ 
+def _encode_j(j: int) -> bytes:
+    """Encode a certificate index j as an 8-byte big-endian integer."""
+    return j.to_bytes(8, 'big')
+ 
+ 
+def sprp_encrypt(msk2: bytes, user_id: int, j: int) -> bytes:
+    key       = msk2[:16]
+    plaintext = _encode_id(user_id) + _encode_j(j)
+    return AES.new(key, AES.MODE_ECB).encrypt(plaintext)
+
+
+def sprp_decrypt(msk2: bytes, ciphertext: bytes) -> Tuple[int, int]:
+    key       = msk2[:16]
+    plaintext = AES.new(key, AES.MODE_ECB).decrypt(ciphertext)
+    user_id   = int.from_bytes(plaintext[:8], 'big')
+    j         = int.from_bytes(plaintext[8:], 'big')
+    return user_id, j
