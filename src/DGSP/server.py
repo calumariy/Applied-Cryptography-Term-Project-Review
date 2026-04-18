@@ -33,7 +33,7 @@ import traceback
 from typing import Optional
 
 from manager import Manager
-from params import SphincsParams
+from params.sphincs_params import SphincsParams
 
 
 # ---------------------------------------------------------------------------

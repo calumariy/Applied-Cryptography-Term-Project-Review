@@ -1,8 +1,8 @@
 import os
 import math
+
 from typing import Tuple, List
 from dataclasses import dataclass
-
 from helpers.ADRS import ADRS, ADRSType
 from params.sphincs_params_Alpha import SphincsParamsAlpha
 from WOTS.WOTS_Alpha import WOTSAlpha

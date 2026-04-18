@@ -1,4 +1,3 @@
-import math
 from params.sphincs_params import SphincsParams
 from WOTS.WOTS_Alpha import cs_len
 
