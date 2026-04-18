@@ -1,9 +1,0 @@
-30-3-2026 - Justin's Changes
-1. Fixed a lot of bugs to ensure functionality works for FORS, XMSS and Hypertree
-2. Merged adrs type into one ADRS.py class --> fixed some functionality in the WOTSPLUS class to ensure
-it uses this new ADRS.py class
-3. Put all the sig types into their own classes
-4. Added a test.py using pytest and pylance for testing of SPHINCS+
-5. Added preliminary hashing functions (see helpers.py) with a dedicated H, F, PRF and T_len (also called T_k)
-The above follows the SHAKE256 functionality (only the most simple variant, see page 39 or dot point 7.2.1 for more information).
-6. Added changelog to better log changes made to the current SPHINCS+ implementation.

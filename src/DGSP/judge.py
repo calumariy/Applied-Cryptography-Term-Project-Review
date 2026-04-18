@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from ADRS import ADRS
-from WOTSPLUS import WOTSPlus, SphincsParams
-from helpers import H_simple
+from helpers.ADRS import ADRS
+from WOTS.WOTSPLUS import WOTSPlus, SphincsParams
+from helpers.helpers import H_simple
 
 
 def _encode_id(user_id: int) -> bytes:

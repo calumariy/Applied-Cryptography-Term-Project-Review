@@ -2,10 +2,10 @@ import os
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
 
-from ADRS import ADRS
-import sphincs
-import helpers
-from params import SphincsParams
+from helpers.ADRS import ADRS
+import sphincs.sphincs as sphincs
+import helpers.helpers as helpers
+from params.sphincs_params import SphincsParams
 
 # ---------------------------------------------------------------------------
 #                            Small data types

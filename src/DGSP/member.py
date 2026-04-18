@@ -5,10 +5,10 @@ import json
 import socket
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
-from ADRS import ADRS
-import helpers
+from helpers.ADRS import ADRS
+import helpers.helpers as helpers
 from params import SphincsParams
-from WOTSPLUS import WOTSPlus
+from WOTS.WOTSPLUS import WOTSPlus
 
 
 # ---------------------------------------------------------------------------
