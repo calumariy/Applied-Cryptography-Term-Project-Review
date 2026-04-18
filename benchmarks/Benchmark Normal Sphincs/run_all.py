@@ -3,13 +3,15 @@ SPHINCS+ Parameter Optimisation (using existing benchmark runners)
 ============================================================
 An incredibly extended version of the basic benchmarking setup
 that collects data on a wide range of parameter combinations, then ranks them by mean time
-and outputs a CSV for further analysis.
+and outputs a CSV for further (and easier) analysis.
 """
 import itertools
 import statistics
 import sys
 import os
 import csv
+import resource
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 sys.path.insert(0, os.path.dirname(__file__))   # so we can import sibling bench files
 
@@ -18,13 +20,15 @@ import bench_keygen
 import bench_sig_size
 import bench_verification
 import bench_signing
-
 from sphincs.sphincs import SphincsParams
 # constraints
 MAX_SIG_BYTES = 20_000 # maximum signature size to consider, filter out anything with too large a sig, moddable.
-# change this to benchmark different aspects of the implementation:
-TARGET_OP     = "sig_size"     # "keygen" | "sign" | "verify" | "sig_size"
-CSV_OUTPUT_PATH = f"results_{TARGET_OP}.csv"
+
+# making it all ops to ease uses.
+# the 4 ops are the ones that need to be tested anyway
+# I think sig_size can technically be removed as other ops inadvertently test it
+# but making it its own operation does allow easier result analysis at the cost of a bit more time.
+ALL_OPS = ["keygen", "sign", "verify", "sig_size"]
 
 # par ranges
 N_VALS = [16]
@@ -57,12 +61,21 @@ _EXTRA_FIELDS = {
     "sig_size": ["r_bytes", "sig_fors_bytes", "sig_ht_bytes", "total_theory_bytes"],
 }
 
+def set_memory_limits(): 
+    # edit first digit to adjust memory limits
+    limit = int(4 * 1024 **3)
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+    except AttributeError:
+        print("  WARNING: resource.setrlimit not available on this OS (non-Linux)")
+    except ValueError as e:
+        print(f"  WARNING: could not set memory limit: {e}") 
 
-def _csv_fields() -> list[str]:
-    return _BASE_FIELDS + _EXTRA_FIELDS.get(TARGET_OP, [])
+def build_csv_fields(curr_op: str) -> list[str]:
+    return _BASE_FIELDS + _EXTRA_FIELDS.get(curr_op, [])
  
  
-def _row(rank: int, result: dict) -> dict:
+def build_row(rank: int, result: dict, curr_op: str) -> dict:
     """Build a flat CSV row from the results"""
     raw     = result["raw"]
     times   = raw["times"]
@@ -81,12 +94,12 @@ def _row(rank: int, result: dict) -> dict:
         "max_ms":    round(max(times)               * 1000, 6),
         "stdev_ms":  round(statistics.stdev(times)  * 1000, 6) if len(times) > 1 else 0.0,
     }
-    if TARGET_OP in ("keygen",):
+    if curr_op in ("keygen",):
         row["sk_bytes"] = raw.get("sk_size", "")
         row["pk_bytes"] = raw.get("pk_size", "")
-    if TARGET_OP == "verify":
+    if curr_op == "verify":
         row["pk_bytes"] = raw.get("pk_size", "")
-    if TARGET_OP == "sig_size":
+    if curr_op == "sig_size":
         row["r_bytes"]            = raw.get("r_size",        "")
         row["sig_fors_bytes"]     = raw.get("sig_fors_size", "")
         row["sig_ht_bytes"]       = raw.get("sig_ht_size",   "")
@@ -94,26 +107,28 @@ def _row(rank: int, result: dict) -> dict:
     return row
  
  
-def write_csv(results: list, path: str) -> None:
+def write_csv(results: list, path: str, curr_op: str) -> None:
     """Write all results (sorted fastest-first) to a CSV file."""
-    ranked = sorted(results, key=lambda r: r["sig_bytes"] if TARGET_OP == "sig_size" else r["mean_ms"])
-    fields = _csv_fields()
+    CSV_OUTPUT_PATH = f"results_{curr_op}.csv"
+    ranked = sorted(results, key=lambda r: r["sig_bytes"] if curr_op == "sig_size" else r["mean_ms"])
+    fields = build_csv_fields(curr_op)
  
     with open(path, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fields)
         writer.writeheader()
         for rank, result in enumerate(ranked, 1):
-            writer.writerow(_row(rank, result))
+            writer.writerow(build_row(rank, result , op))
  
     print(f"\n  CSV written → {path}  ({len(ranked)} rows)")
 
-def sweep():
-    run_fn  = RUNNERS[TARGET_OP]
+# main iterator.
+def sweep(curr_op: str):
+    run_fn  = RUNNERS[curr_op]
     combos  = list(itertools.product(N_VALS, W_VALS, H_VALS, D_VALS, K_VALS, T_VALS))
     total   = len(combos)
     results = []
 
-    print(f"Sweeping {total} combinations for '{TARGET_OP}'...\n")
+    print(f"Sweeping {total} combinations for '{curr_op}'...\n")
 
     for idx, (n, w, h, d, k, t) in enumerate(combos, 1):
         if h % d != 0:
@@ -144,18 +159,18 @@ def sweep():
         })
 
         print(f"[{idx:>4}/{total}] {label} | "
-              f"sig={sig_size:>6}B | {TARGET_OP}={mean_ms:7.3f}ms")
+              f"sig={sig_size:>6}B | {curr_op}={mean_ms:7.3f}ms")
 
     return results
 
-
-def print_top(results: list, n: int = 10):
-    ranked = sorted(results, key=lambda r: r["sig_bytes"] if TARGET_OP == "sig_size" else r["mean_ms"])
+# top 10 results, can b somewhat configured by passing an n argument.
+def print_top(results: list, curr_op: str, n: int = 10):
+    ranked = sorted(results, key=lambda r: r["sig_bytes"] if curr_op == "sig_size" else r["mean_ms"])
     print(f"\n{'═' * 70}")
-    print(f"  Top {n} fastest '{TARGET_OP}' (sig ≤ {MAX_SIG_BYTES}B)")
+    print(f"  Top {n} fastest '{curr_op}' (sig ≤ {MAX_SIG_BYTES}B)")
     print(f"{'═' * 70}")
     print(f"  {'rank':>4}  {'n':>2} {'w':>3} {'h':>2} {'d':>2} "
-          f"{'k':>2} {'t':>2}  {'sig(B)':>7}  {TARGET_OP}(ms)")
+          f"{'k':>2} {'t':>2}  {'sig(B)':>7}  {curr_op}(ms)")
     print(f"  {'─' * 62}")
     for i, r in enumerate(ranked[:n], 1):
         raw = r["raw"]
@@ -170,16 +185,19 @@ def print_top(results: list, n: int = 10):
 
     # also print the full detail for the single best result
     print(f"\n  Full detail for rank 1:")
-    bench_keygen.print_results(ranked[0]["raw"])        if TARGET_OP == "keygen" else \
-    bench_signing.print_results(ranked[0]["raw"])       if TARGET_OP == "sign"   else \
-    bench_verification.print_results(ranked[0]["raw"])  if TARGET_OP == "verify" else \
+    bench_keygen.print_results(ranked[0]["raw"])        if curr_op == "keygen" else \
+    bench_signing.print_results(ranked[0]["raw"])       if curr_op == "sign"   else \
+    bench_verification.print_results(ranked[0]["raw"])  if curr_op == "verify" else \
     bench_sig_size.print_results(ranked[0]["raw"])
 
 
 if __name__ == "__main__":
-    results = sweep()
-    if results:
-        print_top(results, n=10)
-        write_csv(results, CSV_OUTPUT_PATH)
-    else:
-        print("No valid parameter sets found within constraints.")
+    set_memory_limits()
+    for op in ALL_OPS:
+        print (f"Currently running: {op}")
+        results = sweep(op)
+        if results:
+            print_top(results, op, n=10)
+            write_csv(results, f"results_{op}.csv", op)
+        else:
+            print("No valid parameter sets found within constraints.")
