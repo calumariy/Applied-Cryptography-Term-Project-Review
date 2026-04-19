@@ -167,7 +167,9 @@ class FORS_C:
             root[i] = node[0]
 
         # last tree root: taken directly from the signature (precomputed by signer)
-        root[self.k - 1] = sig.get_last_root()
+        last_root = sig.get_last_root()
+        assert last_root is not None, "last_root missing from fors sig"
+        root[self.k - 1] = last_root
 
         forspkADRS = adrs.copy()
         forspkADRS.set_type(ADRSType.FORS_ROOTS)
