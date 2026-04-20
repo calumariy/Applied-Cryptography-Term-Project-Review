@@ -1,5 +1,6 @@
 """
 Benchmarking sourcefile for changing run settings and what not.
+See individual files for more details.
 """
 import math
 import time

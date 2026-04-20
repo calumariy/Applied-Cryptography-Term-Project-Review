@@ -4,8 +4,6 @@ SPHINCS+ Signature Size Breakdown
 Reports the byte composition of a SPHINCS+ signature:
   R  ||  SIG_FORS  ||  SIG_HT
 
-No timing — this is purely a size analysis.
-
 Component sizes (from spec):
   R        = n bytes
   SIG_FORS = k * (n + a*n) bytes  =  k*n*(1+a) bytes
