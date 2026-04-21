@@ -135,32 +135,29 @@ class Member:
     #  DGSP.RequestU  (Certificate Signing Request)
     # ------------------------------------------------------------------
     def request_certificates(self, batch_size: int = 1) -> None:
-        # Step 0 - need to have joined first to get state
         if self.state is None:
             raise RuntimeError("Must call join() first")
 
         st = self.state
 
-        # Step 1: Initialise P* and R*
-        new_rids:    Dict[int, bytes] = {}
-        new_pubkeys: List[Tuple[int, bytes]] = []   # (j, pk_bytes)
+        # Step 1: init P* and R*
+        new_rids:    Dict[int, bytes]        = {}
+        new_pubkeys: List[Tuple[int, bytes]] = []
 
-        # Step 2: Generate batch of WOTS+ public keys and corresponding rids
+        # Step 2: generate B WOTS+ keypairs and their rids
         for i in range(batch_size):
-            j = st.ctr_m + i + 1   # 1-indexed
+            j = st.ctr_m + i + 1
 
             rid_j = os.urandom(self.n)
-            rho_j = helpers.H_simple(rid_j, self.n) 
+            rho_j = helpers.H_simple(rid_j, self.n)
 
-            # SK.seed for this WOTS+ instance = H(User.seed ‖ rid_j)
             wots_sk_seed = helpers.H_simple(st.seed + rid_j, self.n)
+            pk_j         = self.wots.wots_PKgen(wots_sk_seed, rho_j, ADRS())
 
-            pk_j = self.wots.wots_PKgen(wots_sk_seed, rho_j, ADRS())
-
-            new_rids[j]          = rid_j
+            new_rids[j] = rid_j
             new_pubkeys.append((j, pk_j))
 
-        # ---- Send request to manager (ResponseM) ----
+        # ---- Send CSR to manager (ResponseM) ----
         conn = _connect(self.host, self.port)
         try:
             _send(conn, {
@@ -175,37 +172,96 @@ class Member:
 
         if resp is None:
             raise RuntimeError("Server closed connection without a response")
-
         if resp.get("cmd") == "CERT_ERR":
             raise RuntimeError(f"Certificate request rejected: {resp.get('reason')}")
-
         if resp.get("cmd") != "CERT_OK":
             raise RuntimeError(f"Unexpected response: {resp}")
 
-        # ---- UpdateU: store received certificates ----
+        # ---- Parse wire format into Certificate objects ----
         raw_certs = resp["certs"]
         if len(raw_certs) != batch_size:
-            raise RuntimeError(
-                f"Expected {batch_size} cert(s), got {len(raw_certs)}"
-            )
+            raise RuntimeError(f"Expected {batch_size} cert(s), got {len(raw_certs)}")
 
+        new_certs: List[Certificate] = []
         for i, cert_dict in enumerate(raw_certs):
             j = st.ctr_m + i + 1
-
-            cert = Certificate(
+            new_certs.append(Certificate(
                 j       = j,
                 zeta    = bytes.fromhex(cert_dict["zeta"]),
                 pi      = bytes.fromhex(cert_dict["pi"]),
                 sigma_s = bytes.fromhex(cert_dict["sigma_s"]),
-            )
+            ))
 
-            # Store rid_j in R and cert in C
-            st.R[j] = new_rids[j]
-            st.CertList[j] = cert
+        # R = R U R*
+        # (The manager accepted the CSR, so the rids are "real" now.)
+        for j, rid_j in new_rids.items():
+            st.R[j] = rid_j
 
-        # Update counters  (Algorithm 3 — DGSP.UpdateU)
-        st.ctr_u += batch_size
-        st.ctr_m += batch_size
+        # finalize counters + CertList
+        self.updateState(new_certs)
 
         print(f"[CERT] Received {batch_size} certificate(s); "
-              f"ctrU={st.ctr_u}, ctrM={st.ctr_m}")
+            f"ctrU={st.ctr_u}, ctrM={st.ctr_m}")
+        
+    # ------------------------------------------------------------------
+    #  DGSP.UpdateU  (Certificate Batch Update user side)
+    # ------------------------------------------------------------------    
+    def updateState(self, new_certs: List[Certificate]) -> None:
+        if self.state is None:
+            raise RuntimeError("Must call join() before updateState()")
+
+        st = self.state
+        B  = len(new_certs)
+
+        # Steps 1 & 2 — increment both counters by the batch size
+        st.ctr_u += B
+        st.ctr_m += B
+
+        # Step 3 — C ← C U msgMid
+        for cert in new_certs:
+            st.CertList[cert.j] = cert
+
+
+    def sign(self, msg: bytes) -> Tuple[bytes, bytes, bytes, bytes, bytes]:
+
+        if self.state is None:
+            raise RuntimeError("Must call join() before sign()")
+
+        st = self.state
+
+        # Step 1 — Select a r_{id,j} and its corresponding Cert_{id,j})
+        if not st.CertList:
+            raise RuntimeError(
+                "No certificates available; call request_certificates() first"
+            )
+        j = next(iter(st.CertList))
+        cert  = st.CertList[j]
+        rid_j = st.R[j]
+
+        # Step 2 — rho_{id,j} = H(r_{id,j})
+        rho_idj = helpers.H_simple(rid_j, self.n)
+
+        # Step 3 — (sk_{id,j}, pk_{id,j}) = WOTS+.Keygen(H(User.seed ‖ r_{id,j}), rho_{id,j}, ADRS = _)
+        wots_sk_seed = helpers.H_simple(st.seed + rid_j, self.n)
+        pk_idj       = self.wots.wots_PKgen(wots_sk_seed, rho_idj, ADRS())
+
+        # Step 4 — M = H(rho_{id,j} ‖ msg)
+        M = helpers.H_simple(rho_idj + msg, self.n)
+
+        # Step 5 — sig^W_{id, j} = WOTS+.Sign(sk_{id,j}, M, rho_{id,j}, ADRS)
+        sigma_w_list  = self.wots.wots_sign(M, wots_sk_seed, rho_idj, ADRS())
+        sigma_w_bytes = b"".join(sigma_w_list)   # serialise so it matches sig_from_bytes()
+
+        # Step 6 — committment_{id,j} = H(pk_{id,j} ‖ proof_{id,j} ‖ id)
+        id_bytes = helpers._encode_id(st.id)
+        committ_idj = helpers.H_simple(pk_idj + cert.pi + id_bytes, self.n)
+
+        # Step 7 — assemble our group signature
+        group_signature = (sigma_w_bytes, rho_idj, cert.zeta, cert.sigma_s, committ_idj)
+
+        # Step 8 — Remove rid_j and Cert_{id,j} from state_U (marking them as used) and decrement ctr_u
+        del st.R[j]
+        del st.CertList[j]
+        st.ctr_u -= 1
+
+        return group_signature

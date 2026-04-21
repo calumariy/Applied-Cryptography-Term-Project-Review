@@ -1,30 +1,3 @@
-"""
-server.py — DGSP Manager Server
-
-Listens for member connections and drives the join protocol (manager side).
-The Manager object (manager.py) owns all cryptographic state; this file only
-handles networking and message framing.
-
-Wire protocol (newline-delimited JSON, UTF-8):
-
-  JOIN REQUEST   →  {"cmd": "JOIN", "username": "<name>"}
-  JOIN RESPONSE  ←  {"cmd": "JOIN_OK",  "id": <int>, "cstar_id": "<hex>"}
-                 ←  {"cmd": "JOIN_ERR", "reason": "<text>"}
-
-  CERT REQUEST   →  {"cmd": "CERT_REQ", "id": <int>, "cstar_id": "<hex>",
-                                         "pub_keys": ["<hex>", ...]}
-  CERT RESPONSE  ←  {"cmd": "CERT_OK",  "certs": [
-                         {"zeta": "<hex>", "pi": "<hex>", "sigma_s": "<hex>"}, ...
-                     ]}
-                 ←  {"cmd": "CERT_ERR", "reason": "<text>"}
-
-  PK REQUEST     →  {"cmd": "GET_PK"}
-  PK RESPONSE    ←  {"cmd": "PK", "pk": "<hex>"}
-
-Run:
-    python server.py 127.0.0.1 65432
-"""
-
 import sys
 import json
 import socket
