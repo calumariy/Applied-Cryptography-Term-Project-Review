@@ -113,10 +113,11 @@ print(f"SPHINCS-alpha: {len(sig_a)} bytes")
 ### group signature scheme (DGSP)
 
 DGSP is a distributed group signature scheme built on top of SPHINCS+. It allows members of a group to sign messages on behalf of the group, with a manager controlling membership and a judge able to open signatures and identify the signer if required. There are four roles:
-manager - runs the server, controls membership, issues certificates, and can open signatures to reveal the signer
-member - joins the group, requests certificates, and signs messages anonymously on behalf of the group
-verifier - anyone can verify a group signature against the group public key and the revocation list
-judge - given a proof from the manager, can publicly confirm the attribution of a signature to a specific member
+
+- **manager** — runs the server, controls membership, issues certificates, and can open signatures to reveal the signer
+- **member** — joins the group, requests certificates, and signs messages anonymously on behalf of the group
+- **verifier** — anyone can verify a group signature against the group public key and the revocation list
+- **judge** — given a proof from the manager, can publicly confirm the attribution of a signature to a specific member
 
 ```
 # usage instructions to be added
