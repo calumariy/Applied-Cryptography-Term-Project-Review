@@ -13,6 +13,8 @@ from FORS.FORS_sig import FORS_sig
 from sphincs.sphincs import Sphincs, SK, PK
 from DGSP.manager import Manager
 from DGSP.judge import judge, _encode_id
+from DGSP.member import Member, Certificate, StateU
+from DGSP.verify import verify
 import helpers.helpers as helpers
 from WOTS.WOTS_Plus_C import WOTSPlusC, compute_target_sum, check_conditions
 from FORS.FORS_Plus_C import FORS_C
@@ -22,7 +24,7 @@ from sphincs.sphincs_Alpha import SphincsAlpha, SK, PK
 
 # ================================================================
 # Test Parameters
-# ================================================================
+# ================================================================a
 
 N = 16
 W = 16
@@ -126,6 +128,83 @@ def scheme_randomized():
 @pytest.fixture
 def keypair(scheme):
     return scheme.spx_keygen()
+
+@pytest.fixture
+def manager():
+    m = Manager(PARAMS)
+    m.keygen()
+    return m
+
+@pytest.fixture
+def joined_user(manager):
+    return manager.join("alice")
+
+@pytest.fixture
+def wots_keypair():
+    wots = WOTSPlus(PARAMS)
+    seed = os.urandom(N); rid = os.urandom(N)
+    rho = helpers.H_simple(rid, N)
+    sk_seed = helpers.H_simple(seed + rid, N)
+    return wots.wots_PKgen(sk_seed, rho, ADRS())
+
+@pytest.fixture
+def fresh_member(manager, joined_user):
+    """A Member whose state is populated via join, with no certs yet."""
+    user_id, cstar = joined_user
+    m = Member(PARAMS, host="unused", port=0)
+    m.pk_bytes = manager._serialise_pk()
+    m.pk_root  = m.pk_bytes[:N]
+    m.pk_seed  = m.pk_bytes[N:]
+    m.state = StateU(
+        id=user_id, c_id=None, cstar_id=cstar,
+        seed=os.urandom(N), ctr_u=0, ctr_m=0,
+    )
+    return m
+
+
+
+
+def _make_member(manager, username: str, n_certs: int = 1) -> Member:
+    user_id, cstar = manager.join(username)
+
+    m = Member(PARAMS, host="unused", port=0)
+    m.pk_bytes = manager._serialise_pk()
+    m.pk_root  = m.pk_bytes[:N]
+    m.pk_seed  = m.pk_bytes[N:]
+
+    seed = os.urandom(N)
+    m.state = StateU(
+        id=user_id, c_id=None, cstar_id=cstar,
+        seed=seed, ctr_u=0, ctr_m=0,
+    )
+
+    if n_certs == 0:
+        return m
+
+    new_rids = {}
+    pub_keys = []
+    for i in range(n_certs):
+        j     = m.state.ctr_m + i + 1
+        rid_j = os.urandom(N)
+        rho_j = helpers.H_simple(rid_j, N)
+        sk_seed = helpers.H_simple(seed + rid_j, N)
+        pk_j  = m.wots.wots_PKgen(sk_seed, rho_j, ADRS())
+        new_rids[j] = rid_j
+        pub_keys.append(pk_j)
+
+    certs_raw = manager.response_m(user_id, cstar, pub_keys)
+
+    new_certs = []
+    for i, (zeta, pi, sigma_s) in enumerate(certs_raw):
+        j = m.state.ctr_m + i + 1
+        new_certs.append(Certificate(j=j, zeta=zeta, pi=pi, sigma_s=sigma_s))
+
+    for j, rid_j in new_rids.items():
+        m.state.R[j] = rid_j
+
+    m.updateState(new_certs)
+    return m
+
 
 # ================================================================
 # XMSS Tests
@@ -582,27 +661,10 @@ def _build_signature(manager, user_id, cstar, msg):
 
 class TestDGSP:
 
-        # ---------- Fixtures ----------
-
-    @pytest.fixture
-    def manager(self):
-        m = Manager(PARAMS)
-        m.keygen()
-        return m
-
-    @pytest.fixture
-    def joined_user(self, manager):
-        return manager.join("alice")
-
-    @pytest.fixture
-    def wots_keypair(self):
-        wots = WOTSPlus(PARAMS)
-        seed = os.urandom(N); rid = os.urandom(N)
-        rho = helpers.H_simple(rid, N)
-        sk_seed = helpers.H_simple(seed + rid, N)
-        return wots.wots_PKgen(sk_seed, rho, ADRS())
-
-    # ---------- KeyGen ----------
+        # ---------- Fixtures ---------
+    # ================================================================
+    #                           KeyGen
+    # ================================================================
 
     def test_keygen_sets_msk(self, manager):
         assert manager.msk is not None
@@ -649,7 +711,7 @@ class TestDGSP:
             m._serialise_pk()
 
     # ================================================================
-    # Join
+#                               Join
     # ================================================================
 
     def test_join_assigns_sequential_ids(self, manager):
@@ -734,7 +796,7 @@ class TestDGSP:
         assert len(set(stars)) == 50
 
     # ================================================================
-    # ResponseM (cert issuance)
+    #                   ResponseM (cert issuance)
     # ================================================================
 
     def test_response_m_returns_certs(self, manager, joined_user, wots_keypair):
@@ -849,7 +911,7 @@ class TestDGSP:
         assert manager.statesM[user_id].state.ctr == ctr_before
 
     # ================================================================
-    # Revoke
+#                               Revoke
     # ================================================================
 
     def test_revoke_marks_inactive(self, manager, joined_user):
@@ -937,7 +999,7 @@ class TestDGSP:
             m.revoke([1])
 
     # ================================================================
-    # Open
+#                               Open
     # ================================================================
 
     def test_open_recovers_signer_id(self, manager, joined_user):
@@ -977,17 +1039,8 @@ class TestDGSP:
         with pytest.raises(RuntimeError):
             m.open(b"msg", dummy_sig)
 
-    def test_open_works_after_revocation(self, manager, joined_user):
-        """Revocation shouldn't break attribution of past signatures."""
-        user_id, cstar = joined_user
-        sig, pi, *_ = _build_signature(manager, user_id, cstar, b"msg")
-        manager.revoke([user_id])
-        opened_id, opened_pi = manager.open(b"msg", sig)
-        assert opened_id == user_id
-        assert opened_pi == pi
-
     # ================================================================
-    # Judge
+    #                               Judge
     # ================================================================
 
     def test_judge_accepts_honest_attribution(self, manager, joined_user):
@@ -1043,7 +1096,7 @@ class TestDGSP:
         assert all(r is True for r in results)
 
     # ================================================================
-    # Open ↔ Judge integration
+    #                   Open + Judge integration
     # ================================================================
 
     def test_open_then_judge_round_trip(self, manager, joined_user):
@@ -1072,7 +1125,7 @@ class TestDGSP:
         assert judge(b"late msg", sig, oid, opi, PARAMS) is True
 
     # ================================================================
-    # End-to-end protocol scenarios
+    #                   End-to-end protocol scenarios
     # ================================================================
 
     def test_e2e_full_lifecycle(self, manager):
@@ -1110,7 +1163,323 @@ class TestDGSP:
         uid_mid, cstar_mid = ids_cstars[1]
         with pytest.raises(PermissionError):
             manager.response_m(uid_mid, cstar_mid, [os.urandom(N)])
-# class DGSP:
+
+    # =============================================================================
+    #                               TestUpdateState 
+    # =============================================================================
+
+    def _fake_certs(self, start_j: int, count: int):
+        return [
+            Certificate(j=start_j + i, zeta=os.urandom(16),
+                        pi=os.urandom(N), sigma_s=os.urandom(32))
+            for i in range(count)
+        ]
+
+    def test_increments_both_counters_by_batch_size(self, fresh_member):
+        fresh_member.updateState(self._fake_certs(1, 5))
+        assert fresh_member.state.ctr_u == 5
+        assert fresh_member.state.ctr_m == 5
+
+    def test_adds_certs_to_cert_list(self, fresh_member):
+        certs = self._fake_certs(1, 3)
+        fresh_member.updateState(certs)
+        for c in certs:
+            assert fresh_member.state.CertList[c.j] is c
+
+    def test_preserves_existing_certs(self, fresh_member):
+        fresh_member.updateState(self._fake_certs(1, 2))
+        fresh_member.updateState(self._fake_certs(3, 2))
+        assert set(fresh_member.state.CertList.keys()) == {1, 2, 3, 4}
+        assert fresh_member.state.ctr_u == 4
+        assert fresh_member.state.ctr_m == 4
+
+    def test_empty_batch_is_noop(self, fresh_member):
+        fresh_member.updateState([])
+        assert fresh_member.state.ctr_u == 0
+        assert fresh_member.state.ctr_m == 0
+        assert fresh_member.state.CertList == {}
+
+    def test_does_not_touch_R(self, fresh_member):
+        """Per Algorithm 3, UpdateU updates only counters and C, not R."""
+        fresh_member.state.R[1] = b"existing_rid"
+        fresh_member.updateState(self._fake_certs(1, 2))
+        assert fresh_member.state.R == {1: b"existing_rid"}
+
+    def test_before_join_raises(self):
+        m = Member(PARAMS, "unused", 0)
+        with pytest.raises((RuntimeError, AttributeError)):
+            m.updateState([])
+
+# =============================================================================
+#                                   TestSign
+# =============================================================================
+
+class TestSign:
+
+    def test_returns_five_tuple(self, manager):
+        m = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"hello")
+        assert isinstance(sig, tuple) and len(sig) == 5
+        for part in sig:
+            assert isinstance(part, bytes)
+
+    def test_consumes_one_certificate(self, manager):
+        m = _make_member(manager, "alice", n_certs=3)
+        assert m.state.ctr_u == 3
+        m.sign(b"msg")
+        assert m.state.ctr_u == 2
+        assert len(m.state.CertList) == 2
+        assert len(m.state.R) == 2
+
+    def test_forward_anonymity_deletes_rid(self, manager):
+        """After signing, the rid used must be gone from state.R."""
+        m = _make_member(manager, "alice", n_certs=1)
+        used_j = next(iter(m.state.CertList))
+        m.sign(b"msg")
+        assert used_j not in m.state.R
+        assert used_j not in m.state.CertList
+
+    def test_without_certs_raises(self, manager):
+        m = _make_member(manager, "alice", n_certs=0)
+        with pytest.raises(RuntimeError):
+            m.sign(b"msg")
+
+    def test_exhausts_all_certs(self, manager):
+        m = _make_member(manager, "alice", n_certs=3)
+        for _ in range(3):
+            m.sign(b"msg")
+        assert m.state.ctr_u == 0
+        with pytest.raises(RuntimeError):
+            m.sign(b"one more")
+
+    def test_ctr_m_unchanged_by_sign(self, manager):
+        """ctr_m tracks manager-issued certs; sign() shouldn't touch it."""
+        m = _make_member(manager, "alice", n_certs=2)
+        ctr_m_before = m.state.ctr_m
+        m.sign(b"msg")
+        assert m.state.ctr_m == ctr_m_before
+
+    def test_successive_signatures_differ(self, manager):
+        """Two signatures use different certs → resulting sigs differ."""
+        m = _make_member(manager, "alice", n_certs=2)
+        sig1 = m.sign(b"msg")
+        sig2 = m.sign(b"msg")
+        assert sig1[2] != sig2[2]
+
+    def test_tau_has_correct_structure(self, manager):
+        """τ = H(pk ‖ π ‖ id) — check by re-deriving and comparing."""
+        m = _make_member(manager, "alice", n_certs=1)
+        uid = m.state.id
+        j     = next(iter(m.state.CertList))
+        cert  = m.state.CertList[j]
+        rid_j = m.state.R[j]
+
+        rho_j   = helpers.H_simple(rid_j, N)
+        sk_seed = helpers.H_simple(m.state.seed + rid_j, N)
+        pk_j    = m.wots.wots_PKgen(sk_seed, rho_j, ADRS())
+        expected_tau = helpers.H_simple(
+            pk_j + cert.pi + helpers._encode_id(uid), N
+        )
+
+        sig = m.sign(b"msg")
+        _, _, _, _, tau = sig
+        assert tau == expected_tau
+
+
+    # =============================================================================
+    #                            TestVerify
+    # =============================================================================
+
+    def test_accepts_honest_signature(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"hello")
+        assert verify(b"hello", sig, m.pk_bytes, manager.RL, PARAMS) is True
+
+    def test_rejects_tampered_message(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"hello")
+        assert verify(b"tampered", sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_revoked_signature(self, manager):
+        """The whole point of RL distribution — revoked sigs fail verify."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"hello")
+        # pre-revocation: valid
+        assert verify(b"hello", sig, m.pk_bytes, manager.RL, PARAMS) is True
+        # post-revocation: invalid
+        manager.revoke([m.state.id])
+        assert verify(b"hello", sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_tampered_sigma_w(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        sw, rho, zeta, ss, tau = sig
+        bad_sw  = bytes([sw[0] ^ 0xFF]) + sw[1:]
+        bad_sig = (bad_sw, rho, zeta, ss, tau)
+        assert verify(b"msg", bad_sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_tampered_rho(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        sw, rho, zeta, ss, tau = sig
+        bad_rho = bytes([rho[0] ^ 0x01]) + rho[1:]
+        bad_sig = (sw, bad_rho, zeta, ss, tau)
+        assert verify(b"msg", bad_sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_tampered_zeta(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        sw, rho, zeta, ss, tau = sig
+        bad_zeta = bytes([zeta[0] ^ 0xFF]) + zeta[1:]
+        bad_sig  = (sw, rho, bad_zeta, ss, tau)
+        # SPHINCS+ verification will fail because σ^S was over the *real* zeta
+        assert verify(b"msg", bad_sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_tampered_sigma_s(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        sw, rho, zeta, ss, tau = sig
+        bad_ss  = bytes([ss[0] ^ 0xFF]) + ss[1:]
+        bad_sig = (sw, rho, zeta, bad_ss, tau)
+        assert verify(b"msg", bad_sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_tampered_tau(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        sw, rho, zeta, ss, tau = sig
+        bad_tau = bytes([tau[0] ^ 0xFF]) + tau[1:]
+        bad_sig = (sw, rho, zeta, ss, bad_tau)
+        assert verify(b"msg", bad_sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_garbage_signature(self, manager):
+        m = _make_member(manager, "alice", n_certs=0)
+        garbage = (os.urandom(64), os.urandom(N),
+                   os.urandom(16), os.urandom(64), os.urandom(N))
+        assert verify(b"msg", garbage, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_rejects_wrong_pk(self, manager):
+        """Signature verified against the wrong group public key must fail."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        # fresh manager → fresh PK, unrelated to sig
+        other = Manager(PARAMS); other.keygen()
+        assert verify(b"msg", sig, other._serialise_pk(),
+                      other.RL, PARAMS) is False
+
+    def test_uses_no_secrets(self, manager):
+        """verify() is callable with just DGSP.PP — no msk, no SK."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        # We pass only pk_bytes and RL, which are public
+        assert verify(b"msg", sig, m.pk_bytes, list(manager.RL), PARAMS) is True
+
+    def test_rl_is_queried_not_captured(self, manager):
+        """verify(..., RL, ...) should reflect the RL passed *at call time*."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        snapshot_rl_empty = list(manager.RL)  # empty
+        manager.revoke([m.state.id])
+        # Old RL snapshot still says "not revoked"
+        assert verify(b"msg", sig, m.pk_bytes, snapshot_rl_empty, PARAMS) is True
+        # Fresh RL says "revoked"
+        assert verify(b"msg", sig, m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_deterministic(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"msg")
+        results = [verify(b"msg", sig, m.pk_bytes, manager.RL, PARAMS)
+                   for _ in range(5)]
+        assert all(results)
+
+    # =============================================================================
+    #                   Test Sign -> Verify -> Open -> Judge
+    # =============================================================================
+
+    def test_sign_verify_round_trip(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"round trip")
+        assert verify(b"round trip", sig, m.pk_bytes, manager.RL, PARAMS)
+
+    def test_sign_open_judge_round_trip(self, manager):
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"trace me")
+        uid, pi = manager.open(b"trace me", sig)
+        assert uid == m.state.id
+        assert judge(b"trace me", sig, uid, pi, PARAMS) is True
+
+    def test_all_four_algorithms_agree(self, manager):
+        """Sign → Verify → Open → Judge on the same signature."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"everybody")
+        assert verify(b"everybody", sig, m.pk_bytes, manager.RL, PARAMS)
+        uid, pi = manager.open(b"everybody", sig)
+        assert uid == m.state.id
+        assert judge(b"everybody", sig, uid, pi, PARAMS)
+
+    def test_two_users_sign_same_message_distinguishable_by_open(self, manager):
+        a = _make_member(manager, "alice", n_certs=1)
+        b = _make_member(manager, "bob",   n_certs=1)
+        sig_a = a.sign(b"same text")
+        sig_b = b.sign(b"same text")
+        # Both verify
+        assert verify(b"same text", sig_a, a.pk_bytes, manager.RL, PARAMS)
+        assert verify(b"same text", sig_b, b.pk_bytes, manager.RL, PARAMS)
+        # But open distinguishes them
+        uid_a, _ = manager.open(b"same text", sig_a)
+        uid_b, _ = manager.open(b"same text", sig_b)
+        assert uid_a == a.state.id
+        assert uid_b == b.state.id
+        assert uid_a != uid_b
+
+    def test_signature_survives_other_users_joining(self, manager):
+        """Enrolling new users after signing must not affect verification."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"still valid")
+        # More users show up later
+        for i in range(5):
+            manager.join(f"latecomer_{i}")
+        assert verify(b"still valid", sig, m.pk_bytes, manager.RL, PARAMS)
+
+    def test_revoked_user_past_signatures_invalidated(self, manager):
+        """Once revoked, every past signature from that user fails verify."""
+        m = _make_member(manager, "alice", n_certs=3)
+        sigs = [m.sign(f"msg_{i}".encode()) for i in range(3)]
+        for i, sig in enumerate(sigs):
+            assert verify(f"msg_{i}".encode(), sig,
+                          m.pk_bytes, manager.RL, PARAMS) is True
+        manager.revoke([m.state.id])
+        for i, sig in enumerate(sigs):
+            assert verify(f"msg_{i}".encode(), sig,
+                          m.pk_bytes, manager.RL, PARAMS) is False
+
+    def test_revoking_one_user_does_not_affect_another(self, manager):
+        a = _make_member(manager, "alice", n_certs=1)
+        b = _make_member(manager, "bob",   n_certs=1)
+        sig_a = a.sign(b"alice's msg")
+        sig_b = b.sign(b"bob's msg")
+        manager.revoke([a.state.id])
+        assert verify(b"alice's msg", sig_a, a.pk_bytes, manager.RL, PARAMS) is False
+        assert verify(b"bob's msg",   sig_b, b.pk_bytes, manager.RL, PARAMS) is True
+
+    def test_open_still_works_after_revoke(self, manager):
+        """Attribution must survive revocation (already tested, but with real sign())."""
+        m   = _make_member(manager, "alice", n_certs=1)
+        sig = m.sign(b"attributable")
+        manager.revoke([m.state.id])
+        uid, pi = manager.open(b"attributable", sig)
+        assert uid == m.state.id
+        assert judge(b"attributable", sig, uid, pi, PARAMS) is True
+
+    def test_many_signatures_all_round_trip(self, manager):
+        m = _make_member(manager, "alice", n_certs=10)
+        for i in range(10):
+            msg = f"signature_{i}".encode()
+            sig = m.sign(msg)
+            assert verify(msg, sig, m.pk_bytes, manager.RL, PARAMS)
+            uid, pi = manager.open(msg, sig)
+            assert uid == m.state.id
+            assert judge(msg, sig, uid, pi, PARAMS)
+
 
 # ================================================================
 # WOTS+C Tests

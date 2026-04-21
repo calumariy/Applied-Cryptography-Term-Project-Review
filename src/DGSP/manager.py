@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
 
+from .verify import verify
 from helpers.ADRS import ADRS
 import sphincs.sphincs as sphincs
 import helpers.helpers as helpers
@@ -181,10 +182,12 @@ class Manager:
     # DGSP.Open     (Open a signature to reveal the signer)
     # ------------------------------------------------------------------
     def open(self, msg: bytes, sig: Tuple[bytes, bytes, bytes, bytes, bytes]) -> Tuple[int, bytes]:
-        # Step 0 — check keygen() was called
+        # Step 0 — check keygen() was called and the signature is valid
         if self.msk is None:
             raise RuntimeError("Manager.keygen() must be called before open()")
-
+        if not verify(msg, sig, self._serialise_pk(), [], self.params):
+            raise ValueError("Cannot open an invalid signature")
+        
         msk1, msk2 = self.msk
 
         # Step 1 — parse sig^DGSP = (sig^W, rho, zeta, sig^S, tau)
