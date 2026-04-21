@@ -32,6 +32,7 @@ K = 4
 T = 8       # t = 2^3, a = 3
 
 PARAMS = SphincsParams(n=N, w=W, h=H, d=D, k=K, t=T)
+ALPHA_PARAMS = SphincsParamsAlpha(n=N, w=W, h=H, d=D, k=K, t=T)
 
 def make_fors_adrs() -> ADRS:
     # fors requires a specific ADRS type to be parsed unto it for usage.
@@ -116,11 +117,11 @@ def wots_alpha():
 
 @pytest.fixture
 def scheme():
-    return SphincsAlpha(PARAMS, randomize=False)
+    return SphincsAlpha(ALPHA_PARAMS, randomize=False)
  
 @pytest.fixture
 def scheme_randomized():
-    return SphincsAlpha(PARAMS, randomize=True)
+    return SphincsAlpha(ALPHA_PARAMS, randomize=True)
  
 @pytest.fixture
 def keypair(scheme):

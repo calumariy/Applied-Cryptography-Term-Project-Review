@@ -1,7 +1,7 @@
 import hashlib
 from helpers.ADRS import ADRS
 from typing import List, Tuple
-from Crypto.Cipher import AES # pip install pycryptodome (this is for the strong pseudo random permutation in the manager's ResponseM, Revoke, and Open methods)
+from Cryptodome.Cipher import AES # pip install pycryptodomex (this is for the strong pseudo random permutation in the manager's ResponseM, Revoke, and Open methods)
 
 def toByte(x: int, y: int) -> bytes:
     return x.to_bytes(y, byteorder='big')
