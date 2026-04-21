@@ -8,6 +8,7 @@ from params.sphincs_params import SphincsParams
 from helpers.helpers import H_simple
 import sphincs.sphincs as sphincs
 
+# Verifies that the user is in the group and hasn't been revoked. (is called by manager handle cert req)
 def verify(msg: bytes, sig: Tuple[bytes, bytes, bytes, bytes, bytes], pk_bytes: bytes, RL: List[bytes], params: SphincsParams) -> bool:
     try:
         # Step 1 — parse the group signature

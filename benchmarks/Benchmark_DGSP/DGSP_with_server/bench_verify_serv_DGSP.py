@@ -1,7 +1,7 @@
 """
-SPHINCS+ DGSP Open Benchmark (server)
+SPHINCS+ DGSP Verify Benchmark (server-ed)
 ===================================
-Measures wall-clock time for dgsp_open across parameter sets.
+Measures wall-clock time for Verify across parameter sets.
 Methodology:
   - 1 warm-up run discarded (cold-start / cache effects).
   - time.perf_counter() — highest-resolution clock, unaffected by NTP.
@@ -15,7 +15,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
 from params.sphincs_params import SphincsParams
-from bench_common_serv_DGSP import managed_server, run_open_server, N_RUNS, N_WARMUP
+from bench_common_serv_DGSP import managed_server, run_verify_server, N_RUNS, N_WARMUP
 
 PARAM_SETS = [
     # label,                          n,  w,  h, d, k,  t
@@ -25,7 +25,7 @@ PARAM_SETS = [
 
 def run(label: str, params: SphincsParams,
         n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
-    return run_open_server(label, params, n_runs, n_warmup)
+    return run_verify_server(label, params, n_runs, n_warmup)
 
 def print_results(r: dict):
     times = r["times"]
@@ -43,8 +43,9 @@ def print_results(r: dict):
     print(f"  Sig Size  : {r['sig_size']} bytes  ({r['sig_size'] * 8} bits)")
     print(f"  PK size  : {r['pk_size']} bytes  ({r['pk_size'] * 8} bits)")
 
+
 if __name__ == "__main__":
-    print("SPHINCS+ DGSP Open (Server) Benchmark")
+    print("SPHINCS+ DGSP Verify (server) Benchmark")
     print("=" * 56)
     for label, n, w, h, d, k, t in PARAM_SETS:
         params = SphincsParams(n=n, w=w, h=h, d=d, k=k, t=t)

@@ -221,7 +221,7 @@ class Member:
         for cert in new_certs:
             st.CertList[cert.j] = cert
 
-
+    # Returns Group sig
     def sign(self, msg: bytes) -> Tuple[bytes, bytes, bytes, bytes, bytes]:
 
         if self.state is None:

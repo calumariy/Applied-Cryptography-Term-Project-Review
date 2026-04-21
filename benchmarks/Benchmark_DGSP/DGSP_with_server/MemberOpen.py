@@ -216,7 +216,7 @@ class MemberOpen:
         print(f"[CERT] Received {batch_size} certificate(s); "
               f"ctrU={st.ctr_u}, ctrM={st.ctr_m}")
 
-    # NEW STUF
+    # NEW STUF - essentially just a handle server req
     def open(self, msg: bytes, sig: tuple) -> tuple[int, bytes]:
         sigma_w, rho, zeta, sigma_s, tau = sig
         conn = _connect(self.host, self.port)
@@ -242,3 +242,97 @@ class MemberOpen:
             raise RuntimeError(f"Unexpected response to OPEN: {resp}")
 
         return int(resp["user_id"]), bytes.fromhex(resp["pi"])
+    
+    def revoke(self, ids: List[int]) -> List[bytes]:        
+        if not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+            raise ValueError("ids must be a list of integers")
+
+        conn = _connect(self.host, self.port)
+        try:
+            _send(conn, {
+                "cmd": "REVOKE",
+                "ids": ids,
+            })
+            resp = _recv(conn)
+        finally:
+            conn.close()
+
+        if resp is None:
+            raise RuntimeError("Server closed connection without a response")
+
+        if resp.get("cmd") == "REVOKE_ERR":
+            raise RuntimeError(f"REVOKE failed: {resp.get('reason', 'unknown error')}")
+
+        if resp.get("cmd") != "REVOKE_OK":
+            raise RuntimeError(f"Unexpected response to REVOKE: {resp}")
+
+        # convert RL from hex → bytes
+        rl = [bytes.fromhex(z) for z in resp.get("rl", [])]
+
+        print(f"[REVOKE] Received RL of size {len(rl)}")
+
+        return rl
+
+    # ------------------------------------------------------------------
+    #  DGSP.UpdateU  (Certificate Batch Update user side)
+    # ------------------------------------------------------------------    
+    def updateState(self, new_certs: List[Certificate]) -> None:
+        if self.state is None:
+            raise RuntimeError("Must call join() before updateState()")
+
+        st = self.state
+        B  = len(new_certs)
+
+        # Steps 1 & 2 — increment both counters by the batch size
+        st.ctr_u += B
+        st.ctr_m += B
+
+        # Step 3 — C ← C U msgMid
+        for cert in new_certs:
+            st.CertList[cert.j] = cert
+
+    # Returns Group Signature
+    def sign(self, msg: bytes) -> Tuple[bytes, bytes, bytes, bytes, bytes]:
+
+        if self.state is None:
+            raise RuntimeError("Must call join() before sign()")
+
+        st = self.state
+
+        # Step 1 — Select a r_{id,j} and its corresponding Cert_{id,j})
+        if not st.CertList:
+            raise RuntimeError(
+                "No certificates available; call request_certificates() first"
+            )
+        j = next(iter(st.CertList))
+        cert  = st.CertList[j]
+        rid_j = st.R[j]
+
+        # Step 2 — rho_{id,j} = H(r_{id,j})
+        rho_idj = helpers.H_simple(rid_j, self.n)
+
+        # Step 3 — (sk_{id,j}, pk_{id,j}) = WOTS+.Keygen(H(User.seed ‖ r_{id,j}), rho_{id,j}, ADRS = _)
+        wots_sk_seed = helpers.H_simple(st.seed + rid_j, self.n)
+        pk_idj       = self.wots.wots_PKgen(wots_sk_seed, rho_idj, ADRS())
+
+        # Step 4 — M = H(rho_{id,j} ‖ msg)
+        M = helpers.H_simple(rho_idj + msg, self.n)
+
+        # Step 5 — sig^W_{id, j} = WOTS+.Sign(sk_{id,j}, M, rho_{id,j}, ADRS)
+        sigma_w_list  = self.wots.wots_sign(M, wots_sk_seed, rho_idj, ADRS())
+        sigma_w_bytes = b"".join(sigma_w_list)   # serialise so it matches sig_from_bytes()
+
+        # Step 6 — committment_{id,j} = H(pk_{id,j} ‖ proof_{id,j} ‖ id)
+        id_bytes = helpers._encode_id(st.id)
+        committ_idj = helpers.H_simple(pk_idj + cert.pi + id_bytes, self.n)
+
+        # Step 7 — assemble our group signature
+        group_signature = (sigma_w_bytes, rho_idj, cert.zeta, cert.sigma_s, committ_idj)
+
+        # Step 8 — Remove rid_j and Cert_{id,j} from state_U (marking them as used) and decrement ctr_u
+        
+        del st.R[j]
+        del st.CertList[j]
+        st.ctr_u -= 1
+        
+        return group_signature

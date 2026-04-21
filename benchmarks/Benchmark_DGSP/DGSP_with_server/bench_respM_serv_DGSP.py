@@ -1,6 +1,5 @@
 """
 SPHINCS+ DGSP resp_m Benchmark (server-ed)
-reminder: must run bench_server first so that this works
 ===================================
 Measures wall-clock time for resp_m across parameter sets.
 Methodology:
@@ -16,7 +15,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
 from params.sphincs_params import SphincsParams
-from bench_common_serv_DGSP import run_resp_m_server, N_RUNS, N_WARMUP
+from bench_common_serv_DGSP import managed_server, run_resp_m_server, N_RUNS, N_WARMUP
 
 PARAM_SETS = [
     # label,                          n,  w,  h, d, k,  t
@@ -49,5 +48,6 @@ if __name__ == "__main__":
     print("=" * 56)
     for label, n, w, h, d, k, t in PARAM_SETS:
         params = SphincsParams(n=n, w=w, h=h, d=d, k=k, t=t)
-        print_results(run(label, params))
+        with managed_server(params):
+            print_results(run(label, params))
     print(f"\n{'=' * 56}\nDone.")

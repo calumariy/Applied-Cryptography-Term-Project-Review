@@ -28,6 +28,8 @@ ADDED PROTOCOLS
   
   OPEN
 
+  REVOKE
+
   Usage: python server.py <host> <port> [n] [w] [h] [d] [k] [t]
   Has in built defaults for easier use in case n, w, h, d, k or t are
   not initialised.
@@ -99,9 +101,6 @@ def handle_join(conn: socket.socket, msg: dict) -> None:
     try:
         with _manager_lock:
             user_id, cstar_id = _manager.join(username)
-                # temporary debug
-        print(f"[DEBUG JOIN] user_id={user_id} cstar_id_len={len(cstar_id)} "
-              f"cstar_id_hex={cstar_id.hex()[:16]}...")
         send_msg(conn, {
             "cmd":      "JOIN_OK",
             "id":       user_id,
@@ -129,10 +128,6 @@ def handle_cert_req(conn: socket.socket, msg: dict) -> None:
         send_msg(conn, {"cmd": "CERT_ERR", "reason": "Empty pub_keys list"})
         return
             
-            
-            # temporary debug
-    print(f"[DEBUG JOIN] user_id={user_id} cstar_id_len={len(cstar_id)} "
-            f"cstar_id_hex={cstar_id.hex()[:16]}...")
     try:
         with _manager_lock:
             certs = _manager.response_m(user_id, cstar_id, pub_keys)
@@ -188,6 +183,8 @@ def handle_client(conn: socket.socket, addr) -> None:
             
         elif cmd == "OPEN":
             handle_open(conn, msg)
+        elif cmd == "REVOKE":
+            handle_revoke(conn, msg)
         else:
             send_msg(conn, {"cmd": "ERR", "reason": f"Unknown command: '{cmd}'"})
 
@@ -229,6 +226,37 @@ def handle_open(conn: socket.socket, msg: dict) -> None:
         send_msg(conn, {"cmd": "OPEN_ERR", "reason": f"Internal error: {e}"})
         traceback.print_exc()
 
+def handle_revoke(conn: socket.socket, msg: dict) -> None:
+    try:
+        ids = msg.get("ids", None)
+        if ids is None or not isinstance(ids, list):
+            raise ValueError("Missing or invalid 'ids' field")
+
+        # all ids become ints
+        ids_to_revoke = [int(i) for i in ids]
+
+    except (ValueError, TypeError) as e:
+        send_msg(conn, {"cmd": "REVOKE_ERR", "reason": f"Bad request fields: {e}"})
+        return
+
+    try:
+        with _manager_lock:
+            rl = _manager.revoke(ids_to_revoke)
+
+        # serialise RL (list of bytes → hex)
+        rl_hex = [z.hex() for z in rl]
+
+        send_msg(conn, {
+            "cmd": "REVOKE_OK",
+            "rl": rl_hex
+        })
+
+        print(f"[REVOKE] Revoked users: {ids_to_revoke} | RL size={len(rl_hex)}")
+
+    except Exception as e:
+        send_msg(conn, {"cmd": "REVOKE_ERR", "reason": f"Internal error: {e}"})
+        traceback.print_exc()
+        
 
 # ---------------------------------------------------------------------------
 # Main

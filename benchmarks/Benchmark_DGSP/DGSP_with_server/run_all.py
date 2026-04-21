@@ -24,6 +24,8 @@ import bench_keygen_serv_DGSP
 import bench_respM_serv_DGSP
 import bench_judge_serv_DGSP
 import bench_open_serv_DGSP
+import bench_verify_serv_DGSP
+import bench_sign_serv_DGSP
 
 from sphincs.sphincs import SphincsParams
 
@@ -42,14 +44,16 @@ D_VALS = [2, 3]
 K_VALS = [4, 6, 8]
 T_VALS = [8, 16, 32]
 
-ALL_OPS = ["get_pk", "join", "resp_m", "judge", "open"]
+ALL_OPS = ["get_pk", "join", "resp_m", "judge", "open", "sign", "verify"]
 
 RUNNERS = {
     "get_pk":   bench_common.run_keygen_server,
     "join":     bench_common.run_join_server,
     "resp_m":   bench_common.run_resp_m_server,
     "judge":    bench_common.run_judge_server,
-    "open":       bench_common.run_open_server,
+    "open":     bench_common.run_open_server,
+    "sign":     bench_common.run_sign_server,
+    "verify":   bench_common.run_verify_server  
 }
 
 BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t",
@@ -57,8 +61,11 @@ BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t",
 
 EXTRA_FIELDS = {
     "get_pk":   ["pk_bytes"],
-    "resp_m": ["cert_size"],
-    "open":     ["sig_bytes", "pk_bytes"],
+    "resp_m":   ["cert_size"],
+    "judge":    ["sig_size", "pk_size"],
+    "open":     ["sig_size", "pk_size"],
+    "sign":     ["sig_size", "pk_size"],
+    "verify":   ["sig_size", "pk_size"],
 }
 
 
@@ -121,6 +128,9 @@ def build_row(rank: int, result: dict, curr_op: str) -> dict:
         row["pk_bytes"]           = raw.get("pk_size",       "")
     if curr_op == "resp_m":
         row["cert_size"]        = raw.get("cert_size",          "")
+    if curr_op in ("open", "judge", "verify", "sign"):
+        row["sig_bytes"]         = raw.get("sig_size",           "")
+        row["pk_size"]    = raw.get("pk_size",       "")
     return row
 
 
@@ -164,6 +174,8 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
     elif curr_op == "resp_m":   bench_respM_serv_DGSP.print_results(ranked[0]["raw"])
     elif curr_op == "judge":    bench_judge_serv_DGSP.print_results(ranked[0]["raw"])
     elif curr_op == "open":     bench_open_serv_DGSP.print_results(ranked[0]["raw"])
+    elif curr_op == "sign":     bench_sign_serv_DGSP.print_results(ranked[0]["raw"])
+    elif curr_op == "verify":   bench_verify_serv_DGSP.print_results(ranked[0]["raw"])
     
     else:
         # resp_m, open, revoke, judge — no dedicated print_results, just dump raw
@@ -173,7 +185,7 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
 
 
 # main
-def sweep_all():
+def run():
     combos      = list(itertools.product(N_VALS, W_VALS, H_VALS, D_VALS, K_VALS, T_VALS))
     all_results = {op: [] for op in ALL_OPS}
 
@@ -231,4 +243,4 @@ def sweep_all():
 
 
 if __name__ == "__main__":
-    sweep_all()
+    run()
