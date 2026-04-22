@@ -75,11 +75,6 @@ def _cert_tuple_bytes(cert_tuple) -> int:
     zeta, pi, sigma_s = cert_tuple
     return len(zeta) + len(pi) + len(sigma_s)
 
-def _msk_size(m: Manager) -> int:
-    """Total master secret size in bytes. Manager must have had keygen() called."""
-    assert m.msk is not None, "keygen() must be called before reading msk"
-    return _msk_size(m)
-
 
 # ---------------------------------------------------------------------------
 # Benchmark drivers
@@ -100,7 +95,7 @@ def run_keygen_DGSP(label: str, params: SphincsParams,
         "label":            label,
         "params":           params,
         "times":            times,
-        "man_sk_size":      _msk_size(m),
+        "man_sk_size":      len(m.msk[0]) + len(m.msk[1]),
         "personal pk_size": len(pk),
         "group pk_size":    len(m.gpk),
     }
@@ -158,7 +153,7 @@ def run_open_DGSP(label: str, params: SphincsParams,
         "params":           params,
         "times":            times,
         "sig_size":         _sig_tuple_bytes(sig),
-        "man_sk_size":      _msk_size(m),
+        "man_sk_size":      len(m.msk[0]) + len(m.msk[1]),
         "personal pk_size": len(pk),
         "group pk_size":    len(m.gpk),
     }
@@ -188,7 +183,7 @@ def run_revoke_DGSP(label: str, params: SphincsParams,
         "label":            label,
         "params":           params,
         "times":            times,
-        "man_sk_size":      _msk_size(m),
+        "man_sk_size":      len(m.msk[0]) + len(m.msk[1]),
         "personal pk_size": len(pk),
         "group pk_size":    len(m.gpk),
     }
@@ -217,7 +212,7 @@ def run_judge_DGSP(label: str, params: SphincsParams,
         "params":           params,
         "times":            times,
         "sig_size":         _sig_tuple_bytes(sig),
-        "man_sk_size":      _msk_size(m),
+        "man_sk_size":      len(m.msk[0]) + len(m.msk[1]),
         "personal pk_size": len(pk),
         "group pk_size":    len(m.gpk),
     }

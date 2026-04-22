@@ -47,13 +47,6 @@ class Manager:
     # DGSP.KG
     # ------------------------------------------------------------------
     def keygen(self) -> bytes:
-        """
-        Run DGSP.KG.  Returns the serialised public parameters (PK bytes) so
-        that server.py can broadcast them to connecting members.
-
-        DGSP.SK  = (msk, sphincs_sk)
-        DGSP.PP  = (sphincs_pk, RL)          ← RL starts empty
-        """
         self.msk = (os.urandom(self.n), os.urandom(self.n))   # (msk1, msk2)
 
         self.spx_sk, self.spx_pk = self.sphincs.spx_keygen()
