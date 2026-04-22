@@ -1,15 +1,14 @@
 import math
 from dataclasses import dataclass
+from params.protocols import WOTSLike, SphincsLike, PKLike
 
 @dataclass
 class SphincsParams:
     def __init__(self, n, w, h, d, k, t):
         if n <= 0 or w <= 0 or h <= 0 or d <= 0 or k <= 0 or t <= 0:
             raise ValueError("All parameters must be positive")
-
         if h % d != 0:
             raise ValueError("h must be divisible by d")
-
         if (t & (t - 1)) != 0:
             raise ValueError("t must be a power of 2")
 
@@ -23,3 +22,18 @@ class SphincsParams:
         self.len1 = math.ceil(8 * self.n / math.log2(self.w))
         self.len2 = math.floor(math.log2(self.len1 * (self.w - 1)) / math.log2(self.w)) + 1
         self.len  = self.len1 + self.len2
+
+    # This is to make DGSP modular for multiple sphincs variants.
+
+    def make_sphincs(self) -> SphincsLike:
+        from sphincs.sphincs import Sphincs
+        return Sphincs(self)
+
+    def make_wots(self):
+        from WOTS.WOTSPLUS import WOTSPlus
+        from WOTS.WOTS_adapter import WOTSAdapter
+        return WOTSAdapter(WOTSPlus(self), variant="plain")
+    
+    def make_pk(self, pk_root: bytes, pk_seed: bytes) -> PKLike:
+        from sphincs.sphincs import PK
+        return PK(pk_seed=pk_seed, pk_root=pk_root)

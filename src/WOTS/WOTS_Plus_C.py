@@ -155,3 +155,9 @@ class WOTSPlusC:
     def sig_bytes(self) -> int:
         # ell chains of n bytes, counter adds 4 bytes on top
         return self.ell * self.params.n + 4
+
+    def sig_from_bytes(self, sigma_w: bytes) -> List[bytes]:
+        n = self.params.n
+        if len(sigma_w) != self.ell * n:
+            raise ValueError(f"sigma_w length {len(sigma_w)} is not a multiple of n={n}")
+        return [sigma_w[i * n : (i + 1) * n] for i in range(self.ell)]

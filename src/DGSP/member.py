@@ -71,7 +71,7 @@ class Member:
         self.n      = params.n
         self.host   = host
         self.port   = port
-        self.wots   = WOTSPlus(params)
+        self.wots   = params.make_wots()
 
         self.state: StateU
         self.pk_bytes: bytes       # group public key (PK.root ‖ PK.seed) updated later
@@ -222,44 +222,35 @@ class Member:
             st.CertList[cert.j] = cert
 
 
-    def sign(self, msg: bytes) -> Tuple[bytes, bytes, bytes, bytes, bytes]:
-
+    def sign(self, msg: bytes) -> Tuple[bytes, bytes, bytes, bytes, bytes, bytes]:
         if self.state is None:
             raise RuntimeError("Must call join() before sign()")
 
         st = self.state
 
-        # Step 1 — Select a r_{id,j} and its corresponding Cert_{id,j})
         if not st.CertList:
-            raise RuntimeError(
-                "No certificates available; call request_certificates() first"
-            )
-        j = next(iter(st.CertList))
+            raise RuntimeError("No certificates available; call request_certificates() first")
+
+        j     = next(iter(st.CertList))
         cert  = st.CertList[j]
         rid_j = st.R[j]
 
-        # Step 2 — rho_{id,j} = H(r_{id,j})
-        rho_idj = helpers.H_simple(rid_j, self.n)
-
-        # Step 3 — (sk_{id,j}, pk_{id,j}) = WOTS+.Keygen(H(User.seed ‖ r_{id,j}), rho_{id,j}, ADRS = _)
+        rho_idj      = helpers.H_simple(rid_j, self.n)
         wots_sk_seed = helpers.H_simple(st.seed + rid_j, self.n)
         pk_idj       = self.wots.wots_PKgen(wots_sk_seed, rho_idj, ADRS())
 
-        # Step 4 — M = H(rho_{id,j} ‖ msg)
         M = helpers.H_simple(rho_idj + msg, self.n)
 
-        # Step 5 — sig^W_{id, j} = WOTS+.Sign(sk_{id,j}, M, rho_{id,j}, ADRS)
         sigma_w_list  = self.wots.wots_sign(M, wots_sk_seed, rho_idj, ADRS())
-        sigma_w_bytes = b"".join(sigma_w_list)   # serialise so it matches sig_from_bytes()
+        sigma_w_bytes = b"".join(sigma_w_list)
+        counter_bytes = self.wots.last_counter
 
-        # Step 6 — committment_{id,j} = H(pk_{id,j} ‖ proof_{id,j} ‖ id)
-        id_bytes = helpers._encode_id(st.id)
+        id_bytes    = helpers._encode_id(st.id)
         committ_idj = helpers.H_simple(pk_idj + cert.pi + id_bytes, self.n)
 
-        # Step 7 — assemble our group signature
-        group_signature = (sigma_w_bytes, rho_idj, cert.zeta, cert.sigma_s, committ_idj)
+        group_signature = (sigma_w_bytes, counter_bytes, rho_idj,
+                        cert.zeta, cert.sigma_s, committ_idj)
 
-        # Step 8 — Remove rid_j and Cert_{id,j} from state_U (marking them as used) and decrement ctr_u
         del st.R[j]
         del st.CertList[j]
         st.ctr_u -= 1

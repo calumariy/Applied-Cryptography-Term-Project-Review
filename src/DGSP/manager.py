@@ -31,7 +31,8 @@ class Manager:
     def __init__(self, params: SphincsParams) -> None:
         self.params   = params
         self.n        = params.n
-        self.sphincs  = sphincs.Sphincs(params)
+        self.sphincs = params.make_sphincs()   # variant-specific SPHINCS
+        self.wots    = params.make_wots()      # variant-specific WOTS+ for DGSP's sigma_w
 
         self.spx_sk:  sphincs.SK
         self.spx_pk:  sphincs.PK
@@ -181,17 +182,17 @@ class Manager:
     # ------------------------------------------------------------------
     # DGSP.Open     (Open a signature to reveal the signer)
     # ------------------------------------------------------------------
-    def open(self, msg: bytes, sig: Tuple[bytes, bytes, bytes, bytes, bytes]) -> Tuple[int, bytes]:
+    def open(self, msg: bytes, sig: Tuple[bytes, bytes, bytes, bytes, bytes, bytes]) -> Tuple[int, bytes]:
         # Step 0 — check keygen() was called and the signature is valid
         if self.msk is None:
             raise RuntimeError("Manager.keygen() must be called before open()")
         if not verify(msg, sig, self._serialise_pk(), [], self.params):
             raise ValueError("Cannot open an invalid signature")
-        
+
         msk1, msk2 = self.msk
 
         # Step 1 — parse sig^DGSP = (sig^W, rho, zeta, sig^S, tau)
-        sigma_w, rho, zeta, sigma_s, tau = sig
+        sigma_w, counter, rho, zeta, sigma_s, tau = sig
 
         # Step 2 — id ‖ j = E^{-1}(msk2, zeta)
         user_id, j = helpers.sprp_decrypt(msk2, zeta)
@@ -203,14 +204,16 @@ class Manager:
         id_bytes = helpers._encode_id(user_id)
 
         # Step 5 — cid = H(msk1 ‖ id)
-        cid = helpers.H_simple(msk1 + id_bytes, self.n)
+        cid      = helpers.H_simple(msk1 + id_bytes, self.n)
 
         # Step 6 — M = H(rho ‖ msg)
-        M = helpers.H_simple(rho + msg, self.n)
+        M        = helpers.H_simple(rho + msg, self.n)
+
+        self.wots.set_counter(counter)  # If we are in Sphincs+C variant
 
         # Step 7 — pk_{id,j} ← WOTS+.PKRegen(M, sig^W, rho, ADRS=_)
-        sigma_w_list = self.sphincs.wots.sig_from_bytes(sigma_w)
-        pk_idj = self.sphincs.wots.wots_pkFromSig(sigma_w_list, M, rho, ADRS())
+        sigma_w_list = self.wots.sig_from_bytes(sigma_w)
+        pk_idj       = self.wots.wots_pkFromSig(sigma_w_list, M, rho, ADRS())
 
         proof_idj = helpers.H_simple(pk_idj + cid, self.n)
 
@@ -230,4 +233,3 @@ class Manager:
     def is_active(self, user_id: int) -> bool:
         rec = self.statesM.get(user_id)
         return rec is not None and rec.state.active is True
-

@@ -5,9 +5,10 @@ import threading
 import traceback
 from typing import Optional
 
-from manager import Manager
+from .manager import Manager
 from params.sphincs_params import SphincsParams
-
+from params.sphincs_params_Alpha import SphincsParamsAlpha
+from params.sphincs_params_Plus_C import SphincsParamsC  
 
 # ---------------------------------------------------------------------------
 # Globals  (one manager, shared across all threads)
@@ -170,7 +171,9 @@ def main() -> None:
 
     # ---- Initialise manager ----
     # TODO: adjust these parameters for better security / performance tradeoffs
-    params   = SphincsParams(n=16, w=16, h=6, d=2, k=4, t=8)
+    # params = SphincsParams(n=16, w=16, h=6, d=2, k=4, t=8)
+    params = SphincsParamsAlpha(n=16, w=16, h=6, d=2, k=4, t=8)
+    # params = SphincsParamsC(n=16, w=16, h=6, d=2, k=4, t=8, t_prime=16, z=0)
     _manager = Manager(params)
     pk_bytes = _manager.keygen()
     _pk_hex  = pk_bytes.hex()

@@ -157,3 +157,10 @@ class WOTSAlpha:
 
     def sig_bytes(self) -> int:
         return self.l * self.params.n
+    
+    def sig_from_bytes(self, sigma_w: bytes) -> List[bytes]:
+        n = self.params.n
+        if len(sigma_w) % n != 0:
+            raise ValueError(f"sigma_w length {len(sigma_w)} is not a multiple of n={n}")
+        return [sigma_w[i:i+n] for i in range(0, len(sigma_w), n)]
+

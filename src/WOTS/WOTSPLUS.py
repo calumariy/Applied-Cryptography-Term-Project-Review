@@ -40,7 +40,7 @@ class WOTSPlus:
         self.params = params
 
     # ------------------------------------------------------------------
-    # Algorithm 2: chain(X, i, s, PK.seed, ADRS)  (spec r3.1 §3.2)
+    # Algorithm 2: chain(X, i, s, PK.seed, ADRS)
     # ------------------------------------------------------------------
 
     def chain(self, X: bytes, i: int, s: int,
@@ -67,16 +67,10 @@ class WOTSPlus:
     # ------------------------------------------------------------------
 
     def wots_SKgen(self, SK_seed: bytes, ADRS_obj: ADRS) -> List[bytes]:
-        """
-        Generate the WOTS+ secret key (len n-byte strings).
-        Each sk[i] = PRF(SK.seed, skADRS) where skADRS has type WOTS_PRF.
-        """
         n = self.params.n
-
         skADRS = copy.copy(ADRS_obj)
         skADRS.set_type(ADRSType.WOTS_PRF)
         skADRS.set_key_pair_add(ADRS_obj.get_key_pair_add())
-
         sk = []
         for i in range(self.params.len):
             skADRS.set_chain_add(i)
@@ -88,21 +82,13 @@ class WOTSPlus:
     # Algorithm 4: wots_PKgen(SK.seed, PK.seed, ADRS)  (spec r3.1 §3.4)
     # ------------------------------------------------------------------
 
-    def wots_PKgen(self, SK_seed: bytes, PK_seed: bytes,
-                   ADRS_obj: ADRS) -> bytes:
-        """
-        Generate the WOTS+ public key.
-        Derives sk internally; compresses all chain ends via T_len.
-        Returns a single n-byte public key value.
-        """
+    def wots_PKgen(self, SK_seed: bytes, PK_seed: bytes, ADRS_obj: ADRS) -> bytes:
         n = self.params.n
         w = self.params.w
-
         wotspkADRS = ADRS_obj.copy()
         skADRS     = ADRS_obj.copy()
         skADRS.set_type(ADRSType.WOTS_PRF)
         skADRS.set_key_pair_add(ADRS_obj.get_key_pair_add())
-
         tmp = []
         for i in range(self.params.len):
             skADRS.set_chain_add(i)
@@ -112,7 +98,6 @@ class WOTSPlus:
             ADRS_obj.set_chain_add(i)
             ADRS_obj.set_hash_add(0)
             tmp.append(self.chain(sk_i, 0, w - 1, PK_seed, ADRS_obj))
-
         wotspkADRS.set_type(ADRSType.WOTS_PK)
         wotspkADRS.set_key_pair_add(ADRS_obj.get_key_pair_add())
         return T_len(PK_seed, wotspkADRS, tmp, n)
