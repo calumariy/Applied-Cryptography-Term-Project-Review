@@ -202,11 +202,12 @@ def handle_open(conn: socket.socket, msg: dict) -> None:
     try:
         raw_msg  = bytes.fromhex(msg["msg"])
         sigma_w  = bytes.fromhex(msg["sigma_w"])
+        counter  = bytes.fromhex(msg["counter"])
         rho      = bytes.fromhex(msg["rho"])
         zeta     = bytes.fromhex(msg["zeta"])
         sigma_s  = bytes.fromhex(msg["sigma_s"])
         tau      = bytes.fromhex(msg["tau"])
-        sig      = (sigma_w, rho, zeta, sigma_s, tau)
+        sig      = (sigma_w, counter, rho, zeta, sigma_s, tau)
     except (KeyError, ValueError) as e:
         send_msg(conn, {"cmd": "OPEN_ERR", "reason": f"Bad request fields: {e}"})
         return

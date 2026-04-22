@@ -25,6 +25,7 @@ import sys
 import socket
 import uuid
 import time
+from typing import Tuple
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
 from contextlib import contextmanager
@@ -199,6 +200,7 @@ def run_keygen_server(label: str, params: SphincsParams,
                       host=SERVER_HOST, port=SERVER_PORT) -> dict:
     for _ in range(n_warmup):
         new_member(params, host, port)
+    pk = b""
     times = []
     for _ in range(n_runs):
         m  = Member(params, host, port)
@@ -361,7 +363,7 @@ def run_verify_server(label: str, params: SphincsParams,
 def run_sign_server(label: str, params: SphincsParams,
                     n_runs: int = N_RUNS, n_warmup: int = N_WARMUP,
                     host=SERVER_HOST, port=SERVER_PORT) -> dict:
-    counter = 0;
+    counter = 0
     username = f"sign_user{counter}_{uuid.uuid4().hex[:8]}"
     m = join_member_open(params, username, host, port)
 
@@ -369,11 +371,12 @@ def run_sign_server(label: str, params: SphincsParams,
         m.request_certificates(batch_size=1)
         m.sign(b"benchmark message")
 
+    sig: Tuple[bytes, bytes, bytes, bytes, bytes, bytes] = (b"", b"", b"", b"", b"", b"")
     times = []
     for _ in range(n_runs):
         t0 = time.perf_counter()
         m.request_certificates(batch_size=1)
-        sig = m.sign(b"benchmark message")        
+        sig = m.sign(b"benchmark message")
         times.append(time.perf_counter() - t0)
 
     return {

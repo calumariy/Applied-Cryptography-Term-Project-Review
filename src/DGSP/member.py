@@ -8,7 +8,6 @@ from typing import Dict, List, Optional, Tuple
 from helpers.ADRS import ADRS
 import helpers.helpers as helpers
 from params.sphincs_params import SphincsParams
-from WOTS.WOTSPLUS import WOTSPlus
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +33,7 @@ class StateU:
     ctr_u:     int = 0      # (The number of certificates the user currently holds)
     ctr_m:     int = 0      # (user needs to know what index j to start from when generating the next batch of public keys to send the manager)
     R:         Dict[int, bytes] = field(default_factory=dict)   # (The random values rid_j used to generate the WOTS+ key pairs, indexed by j)
-    CertList:         Dict[int, Certificate] = field(default_factory=dict)  # (The certificates the user currently holds, indexed by j)
+    CertList:  Dict[int, Certificate] = field(default_factory=dict)  # (The certificates the user currently holds, indexed by j)
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +96,7 @@ class Member:
         self.pk_root  = self.pk_bytes[:self.n]
         self.pk_seed  = self.pk_bytes[self.n:]
         return self.pk_bytes
+    
     # ------------------------------------------------------------------
     # DGSP.Join (user side)
     # ------------------------------------------------------------------
