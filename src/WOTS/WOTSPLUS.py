@@ -125,8 +125,9 @@ class WOTSPlus:
 
         # convert checksum to base w  (spec r3.1 §3.5)
         log_w = int(math.log2(w))
-        if log_w % 8 != 0:
-            csum = csum << (8 - (p.len2 * log_w) % 8)
+        shift = (8 - (p.len2 * log_w) % 8) % 8
+        if shift:
+            csum = csum << shift
         len2_bytes = math.ceil(p.len2 * log_w / 8)
         msg = msg + base_w(csum.to_bytes(len2_bytes, "big"), w, p.len2)
 
@@ -173,8 +174,9 @@ class WOTSPlus:
 
         # convert checksum to base w  (spec r3.1 §3.6)
         log_w = int(math.log2(w))
-        if log_w % 8 != 0:
-            csum = csum << (8 - (p.len2 * log_w) % 8)
+        shift = (8 - (p.len2 * log_w) % 8) % 8
+        if shift:
+            csum = csum << shift
         len2_bytes = math.ceil(p.len2 * log_w / 8)
         msg = msg + base_w(csum.to_bytes(len2_bytes, "big"), w, p.len2)
 

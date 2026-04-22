@@ -5,12 +5,8 @@ from helpers.ADRS import ADRS
 from helpers.helpers import H_simple
 from params.sphincs_params import SphincsParams
 
-
-def verify(msg: bytes,
-           sig: Tuple[bytes, bytes, bytes, bytes, bytes, bytes],
-           pk_bytes: bytes,
-           RL: List[bytes],
-           params: SphincsParams) -> bool:
+# Verifies that the user is in the group and hasn't been revoked. (is called by manager handle cert req)
+def verify(msg: bytes, sig: Tuple[bytes, bytes, bytes, bytes, bytes, bytes], pk_bytes: bytes, RL: List[bytes], params: SphincsParams) -> bool:
     try:
         sigma_w, counter, rho, zeta, sigma_s, tau = sig
 

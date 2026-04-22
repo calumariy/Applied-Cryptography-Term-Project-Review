@@ -15,6 +15,9 @@ pip install -r requirements.txt
 │   ├── Benchmark Normal Sphincs/   # benchmarks for base SPHINCS+
 │   ├── Benchmark Sphincs Alpha/    # benchmarks for SPHINCS-alpha
 │   └── Benchmark Sphincs+C/        # benchmarks for SPHINCS+C
+│   └── Benchmark DGSP/             # benchmarks for DGSP
+│       ├── DGSP_no_server          # benchmarks for DGSP specifically without server
+│       ├── DGSP_with_server        # benchmarks for DGSP specifically with server
 └── src/
     ├── DGSP/                   # distributed group signature scheme built on SPHINCS+
     ├── FORS/                   # FORS few-time signature scheme
@@ -146,6 +149,51 @@ pytest test.py::TestSphincsAlpha -v
 
 ## Benchmarks
 
+### Running All Benchmarks/Parameter Optimisations
+
+To run all benchmarks across all schemes and parameter optimisations:
+To run all parameter optimisations simultaneously
+Go to benchmarks folder
+Run the following
+
+```bash
+python run_all_run_all.py
 ```
-# benchmarking instructions to be added
+
+### Running Specific Benchmarks/Parameter Optimisations for SPHINCS variants
+
+To run specific benchmarking programs
+Go to their individual folder within the benchmarks folder
+Run the following for running a specific SPHINCS optimisation
+
+```bash
+python run_all.py
+```
+
+#### Running Benchmarks for Specific Parameters
+
+Run one the following for running a specific parameter optimisation
+Remove _{insert SPHINCS variation} if running default Sphincs+
+
+```bash
+    python bench_keygen_{insert SPHINCS variation}.py
+    python bench_sig_size_{insert SPHINCS variation}.py
+    python bench_signing_{insert SPHINCS variation}.py
+    python bench_verification_{insert SPHINCS variation}.py
+```
+
+Run one the following for running a specific parameter optimisation
+only for DGSP parameters
+
+
+```bash
+    python bench_join_{serv/noserv}_DGSP.py
+    python bench_judge_{serv/noserv}_DGSP.py
+    python bench_keygen_{serv/noserv}_DGSP.py
+    python bench_open_{serv/noserv}_DGSP.py
+    python bench_respM_{serv/noserv}_DGSP.py
+    python bench_sign_serv_DGSP.py
+    python bench_verify_serv_DGSP.py
+    python bench_sig_size_noserv_DGSP.py
+    python bench_revoke_noserv_DGSP.py
 ```

@@ -217,6 +217,7 @@ class Manager:
 
         proof_idj = helpers.H_simple(pk_idj + cid, self.n)
 
+        # proof_idj is for judge
         return user_id, proof_idj
 
     # ------------------------------------------------------------------
