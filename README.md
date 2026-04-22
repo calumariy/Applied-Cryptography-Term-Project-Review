@@ -155,7 +155,7 @@ To run all benchmarks across all schemes and parameter optimisations:
 To run all parameter optimisations simultaneously
 Go to benchmarks folder
 Run the following
-```
+
 ```bash
 python run_all_run_all.py
 ```
@@ -165,7 +165,7 @@ python run_all_run_all.py
 To run specific benchmarking programs
 Go to their individual folder within the benchmarks folder
 Run the following for running a specific SPHINCS optimisation
-```
+
 ```bash
 python run_all.py
 ```
@@ -174,7 +174,6 @@ python run_all.py
 
 Run one the following for running a specific parameter optimisation
 Remove _{insert SPHINCS variation} if running default Sphincs+
-```
 
 ```bash
     python bench_keygen_{insert SPHINCS variation}.py
@@ -185,7 +184,7 @@ Remove _{insert SPHINCS variation} if running default Sphincs+
 
 Run one the following for running a specific parameter optimisation
 only for DGSP parameters
-```
+
 
 ```bash
     python bench_join_{serv/noserv}_DGSP.py
