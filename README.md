@@ -149,7 +149,9 @@ pytest test.py::TestSphincsAlpha -v
 
 ## Benchmarks
 
-```
+### Running All Benchmarks/Parameter Optimisations
+
+To run all benchmarks across all schemes and parameter optimisations:
 To run all parameter optimisations simultaneously
 Go to benchmarks folder
 Run the following
@@ -158,19 +160,18 @@ Run the following
 python run_all_run_all.py
 ```
 
-```
+### Running Specific Benchmarks/Parameter Optimisations for SPHINCS variants
+
 To run specific benchmarking programs
 Go to their individual folder within the benchmarks folder
-```
-
-```
 Run the following for running a specific SPHINCS optimisation
 ```
 ```bash
 python run_all.py
 ```
 
-```
+#### Running Benchmarks for Specific Parameters
+
 Run one the following for running a specific parameter optimisation
 Remove _{insert SPHINCS variation} if running default Sphincs+
 ```
@@ -182,7 +183,6 @@ Remove _{insert SPHINCS variation} if running default Sphincs+
     python bench_verification_{insert SPHINCS variation}.py
 ```
 
-```
 Run one the following for running a specific parameter optimisation
 only for DGSP parameters
 ```
