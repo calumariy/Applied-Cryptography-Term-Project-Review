@@ -16,7 +16,8 @@ Also, depending on your spec, this does take time.
 if __name__ == "__main__":
     sphincs_run()
     sphincs_alpha_run()
-    sphincs_c_run()
     sphincs_dgsp_serverless_run()
     sphincs_dgsp_server_run()
+    # last cuz it takes the longest
+    sphincs_c_run()
 
