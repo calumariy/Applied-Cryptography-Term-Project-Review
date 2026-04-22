@@ -35,7 +35,7 @@ MAX_SIG_BYTES = 20_000 # maximum signature size to consider, filter out anything
 ALL_OPS = ["keygen", "sign", "verify", "sig_size"]
 
 # par ranges
-N_VALS = [16]
+N_VALS = [16, 32]
 W_VALS = [4, 16, 64, 256]
 H_VALS = [6, 10, 12]
 D_VALS = [2, 3]

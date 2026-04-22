@@ -4,6 +4,9 @@ SPHINCS+ DGSP Sig Size Benchmark (serverless)
 Reports size of DGSP signature
 """
 import statistics
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
 from params.sphincs_params import SphincsParams
 from bench_common_noserv_DGSP import run_sig_size_DGSP, N_RUNS, N_WARMUP

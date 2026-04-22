@@ -18,18 +18,18 @@ sys.path.insert(0, os.path.dirname(__file__))   # so we can import sibling bench
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 from DGSP.member import Member
-import bench_common_serv_DGSP as bench_common
-import bench_join_serv_DGSP
-import bench_keygen_serv_DGSP
-import bench_respM_serv_DGSP
-import bench_judge_serv_DGSP
-import bench_open_serv_DGSP
-import bench_verify_serv_DGSP
-import bench_sign_serv_DGSP
+import bench_common_serv_DGSP_C as bench_common
+import bench_join_serv_DGSP_C
+import bench_keygen_serv_DGSP_C
+import bench_respM_serv_DGSP_C as bench_respM_serv_DGSP_C
+import bench_judge_serv_DGSP_C
+import bench_open_serv_DGSP_C
+import bench_verify_serv_DGSP_C
+import bench_sign_serv_DGSP_C
 
-from sphincs.sphincs import SphincsParams
+from params.sphincs_params_Plus_C import SphincsParamsC
 
-SERVER_PY = os.path.join(os.path.dirname(__file__), "bench_server.py")
+SERVER_PY = os.path.join(os.path.dirname(__file__), "bench_server_C.py")
 SERVER_HOST = bench_common.SERVER_HOST
 SERVER_PORT = bench_common.SERVER_PORT
 
@@ -37,17 +37,22 @@ MAX_SIG_BYTES = 20_000
 N_RUNS        = 5
 N_WARMUP      = 1
 
-N_VALS = [16]
-W_VALS = [4, 16, 64, 256]
+# par ranges
+N_VALS = [16, 32]
+# I wanted a W value to be 256 like in other run_alls, but the proccessing power heavily stalls at that point.
+W_VALS = [4, 16, 64]
 H_VALS = [6, 10, 12]
 D_VALS = [2, 3]
 K_VALS = [4, 6, 8]
 T_VALS = [8, 16, 32]
+T_PRIME_VALS = [8, 16, 32]
+# Z val of 4 also causes a huge increase in processing time.
+Z_VALS = [0, 2]
 
-ALL_OPS = ["get_pk", "join", "resp_m", "judge", "open", "sign", "verify"]
+ALL_OPS = ["keygen", "join", "resp_m", "judge", "open", "sign", "verify"]
 
 RUNNERS = {
-    "get_pk":   bench_common.run_keygen_server,
+    "keygen":   bench_common.run_keygen_server,
     "join":     bench_common.run_join_server,
     "resp_m":   bench_common.run_resp_m_server,
     "judge":    bench_common.run_judge_server,
@@ -81,7 +86,7 @@ def start_server(n, w, h, d, k, t) -> subprocess.Popen:
     return subprocess.Popen(cmd)
 
 # wait until server is open and get stuff from it.
-def wait_for_server(params: SphincsParams, timeout: float = 15.0) -> bool:
+def wait_for_server(params: SphincsParamsC, timeout: float = 15.0) -> bool:
     m = Member(params, SERVER_HOST, SERVER_PORT)
 
     deadline = time.time() + timeout
@@ -169,13 +174,13 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
 
     print(f"\n  Full detail for rank 1:")
 
-    if curr_op == "get_pk":     bench_keygen_serv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "join":     bench_join_serv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "resp_m":   bench_respM_serv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "judge":    bench_judge_serv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "open":     bench_open_serv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "sign":     bench_sign_serv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "verify":   bench_verify_serv_DGSP.print_results(ranked[0]["raw"])
+    if curr_op == "get_pk":     bench_keygen_serv_DGSP_C.print_results(ranked[0]["raw"])
+    elif curr_op == "join":     bench_join_serv_DGSP_C.print_results(ranked[0]["raw"])
+    elif curr_op == "resp_m":   bench_respM_serv_DGSP_C.print_results(ranked[0]["raw"])
+    elif curr_op == "judge":    bench_judge_serv_DGSP_C.print_results(ranked[0]["raw"])
+    elif curr_op == "open":     bench_open_serv_DGSP_C.print_results(ranked[0]["raw"])
+    elif curr_op == "sign":     bench_sign_serv_DGSP_C.print_results(ranked[0]["raw"])
+    elif curr_op == "verify":   bench_verify_serv_DGSP_C.print_results(ranked[0]["raw"])
     
     else:
         # resp_m, open, revoke, judge — no dedicated print_results, just dump raw
@@ -186,10 +191,10 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
 
 # main
 def run():
-    combos      = list(itertools.product(N_VALS, W_VALS, H_VALS, D_VALS, K_VALS, T_VALS))
+    combos      = list(itertools.product(N_VALS, W_VALS, H_VALS, D_VALS, K_VALS, T_VALS, T_PRIME_VALS, Z_VALS))
     all_results = {op: [] for op in ALL_OPS}
 
-    for idx, (n, w, h, d, k, t) in enumerate(combos, 1):
+    for idx, (n, w, h, d, k, t, t_prime, z) in enumerate(combos, 1):
         if h % d != 0:
             continue
         if (t & (t - 1)) != 0:
@@ -199,14 +204,14 @@ def run():
         print(f"\n[{idx:>4}/{len(combos)}] {label}")
 
         proc = start_server(n, w, h, d, k, t)
-        server_temp_params = SphincsParams(n, w, h, d, k ,t)
+        server_temp_params = SphincsParamsC(n, w, h, d, k ,t, t_prime, z)
         if not wait_for_server(server_temp_params):
             print(f"  SKIP — server did not start in time")
             stop_server(proc)
             continue
         print(f"  server ready")
 
-        params = SphincsParams(n=n, w=w, h=h, d=d, k=k, t=t)
+        params = SphincsParamsC(n, w, h, d, k ,t, t_prime, z)
 
         for op in ALL_OPS:
             run_fn = RUNNERS[op]
@@ -224,7 +229,7 @@ def run():
 
             mean_ms = statistics.mean(r["times"]) * 1000
             all_results[op].append({
-                "n": n, "w": w, "h": h, "d": d, "k": k, "t": t,
+                "n": n, "w": w, "h": h, "d": d, "k": k, "t": t, "t_prime": t_prime, "z": z,
                 "sig_bytes": sig_size,
                 "mean_ms":   mean_ms,
                 "raw":       r,
@@ -236,7 +241,7 @@ def run():
     for op, results in all_results.items():
         if results:
             print_top(results, op, n=10)
-            path = os.path.join(script_dir, f"results_{op}_server.csv")
+            path = os.path.join(script_dir, f"results_{op}_server_dgsp_c.csv")
             write_csv(results, path, op)
         else:
             print(f"  No valid results for '{op}'.")

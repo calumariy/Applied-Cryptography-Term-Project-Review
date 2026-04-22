@@ -18,14 +18,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 sys.path.insert(0, os.path.dirname(__file__))
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-import bench_common_noserv_DGSP as bench_common
-import bench_keygen_noserv_DGSP
-import bench_open_noserv_DGSP
-import bench_judge_noserv_DGSP
-import bench_sig_size_noserv_DGSP
-import bench_respM_noserv_DGSP
-import bench_revoke_noserv_DGSP
-from sphincs.sphincs import SphincsParams
+import bench_common_noserv_DGSP_alpha as bench_common
+import bench_keygen_noserv_DGSP_alpha
+import bench_open_noserv_DGSP_alpha
+import bench_judge_noserv_DGSP_alpha
+import bench_sig_size_noserv_DGSP_alpha
+import bench_respM_noserv_DGSP_alpha
+import bench_revoke_noserv_DGSP_alpha
+from params.sphincs_params_Alpha import SphincsParamsAlpha
 
 # constraints
 MAX_SIG_BYTES = 20_000
@@ -33,7 +33,7 @@ MAX_SIG_BYTES = 20_000
 ALL_OPS = ["keygen", "resp_m", "open", "revoke", "judge", "sig_size"]
 
 # par ranges
-N_VALS = [16]
+N_VALS = [16, 32]
 W_VALS = [4, 16, 64, 256]
 H_VALS = [6, 10, 12]
 D_VALS = [2, 3]
@@ -151,7 +151,7 @@ def sweep(curr_op: str) -> list:
 
         label = f"n={n} w={w} h={h} d={d} k={k} t={t}"
         try:
-            params = SphincsParams(n=n, w=w, h=h, d=d, k=k, t=t)
+            params = SphincsParamsAlpha(n=n, w=w, h=h, d=d, k=k, t=t)
             r      = run_fn(label, params, n_runs=N_RUNS, n_warmup=N_WARMUP)
         except Exception as e:
             print(f"[{idx:>4}/{total}] SKIP {label}  ({e})")
@@ -197,12 +197,12 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
               f"{r['k']:>2} {r['t']:>2}  {sizes_str}  {r['mean_ms']:>9.3f}ms")
 
     print(f"\n  Full detail for rank 1:")
-    if   curr_op == "sig_size": bench_sig_size_noserv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "keygen":   bench_keygen_noserv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "revoke":   bench_revoke_noserv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "resp_m":   bench_respM_noserv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "open":     bench_open_noserv_DGSP.print_results(ranked[0]["raw"])
-    elif curr_op == "judge":    bench_judge_noserv_DGSP.print_results(ranked[0]["raw"])
+    if   curr_op == "sig_size": bench_sig_size_noserv_DGSP_alpha.print_results(ranked[0]["raw"])
+    elif curr_op == "keygen":   bench_keygen_noserv_DGSP_alpha.print_results(ranked[0]["raw"])
+    elif curr_op == "revoke":   bench_revoke_noserv_DGSP_alpha.print_results(ranked[0]["raw"])
+    elif curr_op == "resp_m":   bench_respM_noserv_DGSP_alpha.print_results(ranked[0]["raw"])
+    elif curr_op == "open":     bench_open_noserv_DGSP_alpha.print_results(ranked[0]["raw"])
+    elif curr_op == "judge":    bench_judge_noserv_DGSP_alpha.print_results(ranked[0]["raw"])
 
     else:
         for k, v in ranked[0]["raw"].items():
@@ -213,13 +213,13 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
 def run():
     # uncomment below if OS is unix to memory limit param opt test.
     # set_memory_limits()
-    print("Welcome to param optimizer: DGSP (serverless)")
+    print("Welcome to param optimizer: DGSP Alpha (serverless)")
     for op in ALL_OPS:
         print(f"\nCurrently running: {op}")
         results = sweep(op)
         if results:
             print_top(results, op, n=10)
-            file_path = os.path.join(script_dir, f"results_{op}_dgsp_noserv.csv")
+            file_path = os.path.join(script_dir, f"results_{op}_dgsp_noserv_alpha.csv")
             write_csv(results, file_path, op)
         else:
             print(f"  No valid parameter sets found for '{op}'.")

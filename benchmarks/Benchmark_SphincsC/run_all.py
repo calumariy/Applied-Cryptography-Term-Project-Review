@@ -36,7 +36,7 @@ MAX_SIG_BYTES = 20_000 # maximum signature size to consider, filter out anything
 ALL_OPS = ["keygen", "sign", "verify", "sig_size"]
 
 # par ranges
-N_VALS = [16]
+N_VALS = [16, 32]
 # I wanted a W value to be 256 like in other run_alls, but the proccessing power heavily stalls at that point.
 W_VALS = [4, 16, 64]
 H_VALS = [6, 10, 12]
