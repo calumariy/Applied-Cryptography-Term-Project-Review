@@ -18,6 +18,8 @@ import resource
 def set_memory_limits():
     limit = int(4 * 1024 ** 3)
     try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+        limit = min(limit, hard) if hard != resource.RLIM_INFINITY else limit
         resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
     except AttributeError:
         print("  WARNING: resource.setrlimit not available on this OS (non-Linux)")
