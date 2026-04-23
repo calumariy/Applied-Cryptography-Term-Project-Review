@@ -26,7 +26,7 @@ import bench_signing_alpha as bench_signing_alpha
 
 from sphincs.sphincs_Alpha import SphincsParamsAlpha
 # constraints
-MAX_SIG_BYTES = 20_000 # maximum signature size to consider, filter out anything with too large a sig, moddable.
+MAX_SIG_BYTES = 100_000 # maximum signature size to consider, filter out anything with too large a sig, moddable.
 
 # making it all ops to ease uses.
 # the 4 ops are the ones that need to be tested anyway

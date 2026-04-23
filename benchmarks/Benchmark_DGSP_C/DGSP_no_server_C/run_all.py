@@ -28,7 +28,7 @@ import bench_revoke_noserv_DGSP_C
 from params.sphincs_params_Plus_C import SphincsParamsC
 
 # constraints
-MAX_SIG_BYTES = 20_000
+MAX_SIG_BYTES = 100_000
 
 ALL_OPS = ["keygen", "resp_m", "open", "revoke", "judge", "sig_size"]
 

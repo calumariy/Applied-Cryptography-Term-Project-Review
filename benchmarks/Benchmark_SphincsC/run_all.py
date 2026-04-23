@@ -27,7 +27,7 @@ import bench_verification_C as bench_verification_C
 import bench_signing_C as bench_signing_C
 from sphincs.sphincs_Plus_C import SphincsParamsC
 # constraints
-MAX_SIG_BYTES = 20_000 # maximum signature size to consider, filter out anything with too large a sig, moddable.
+MAX_SIG_BYTES = 100_000 # maximum signature size to consider, filter out anything with too large a sig, moddable.
 
 # making it all ops to ease uses.
 # the 4 ops are the ones that need to be tested anyway

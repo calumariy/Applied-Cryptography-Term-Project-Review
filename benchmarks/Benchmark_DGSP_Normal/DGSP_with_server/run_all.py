@@ -33,7 +33,7 @@ SERVER_PY = os.path.join(os.path.dirname(__file__), "bench_server.py")
 SERVER_HOST = bench_common.SERVER_HOST
 SERVER_PORT = bench_common.SERVER_PORT
 
-MAX_SIG_BYTES = 20_000
+MAX_SIG_BYTES = 100_000
 N_RUNS        = 5
 N_WARMUP      = 1
 
