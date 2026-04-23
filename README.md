@@ -159,6 +159,30 @@ Run the following
 ```bash
 python run_all_run_all.py
 ```
+### Running Benchmarks/Param Optimisations w/ Memory Limits:
+To run/disable a benchmarking scheme with memory limits (MUST BE IN UNIX SYSTEM):
+Go to benchmarks folder
+Comment/Uncomment the following lines
+```bash
+import resource
+    
+```
+
+``` bash
+def set_memory_limits():
+    limit = int(4 * 1024 ** 3)
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+    except AttributeError:
+        print("  WARNING: resource.setrlimit not available on this OS (non-Linux)")
+    except ValueError as e:
+        print(f"  WARNING: could not set memory limit: {e}")
+```
+
+``` bash
+set_memory_limits()
+```
+
 
 ### Running Specific Benchmarks/Parameter Optimisations for SPHINCS variants
 
