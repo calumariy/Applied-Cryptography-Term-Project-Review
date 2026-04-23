@@ -5,11 +5,11 @@ from helpers.ADRS import ADRS, ADRSType
 from params.sphincs_params import SphincsParams
 from WOTS.WOTSPLUS import WOTSPlus
 from XMSS.XMSS import XMSS
-from XMSS.XMSS_sig import xmss_sig
+from XMSS.XMSS_sig import XmssSig
 from sphincs.hypertree.Hypertree import Hypertree
-from sphincs.hypertree.Hypertree_sig import hypertree_sig
+from sphincs.hypertree.Hypertree_sig import HypertreeSig
 from FORS.FORS import FORS
-from FORS.FORS_sig import FORS_sig
+from FORS.FORS_sig import ForsSig
 from sphincs.sphincs import Sphincs, SK, PK
 from DGSP.manager import Manager
 from DGSP.judge import judge, _encode_id
@@ -210,7 +210,7 @@ class TestXMSS:
     # test sign to see if it returns correctly constructed XMSS_SIG
     def test_sign_returns_xmss_sig(self, xmss, message, sk_seed, pk_seed):
         sig = xmss.xmss_sign(message, sk_seed, 0, pk_seed, ADRS())
-        assert isinstance(sig, xmss_sig)
+        assert isinstance(sig, XmssSig)
 
     # byte test
     def test_sign_auth_nodes_are_n_bytes(self, xmss, message, sk_seed, pk_seed):
@@ -312,7 +312,7 @@ class TestHypertree:
     # check test if returns correct type of sig
     def test_sign_returns_hypertree_sig(self, ht, message, sk_seed, pk_seed):
         sig = ht.ht_sign(message, sk_seed, pk_seed, 0, 0)
-        assert isinstance(sig, hypertree_sig)
+        assert isinstance(sig, HypertreeSig)
 
     # check test if the sig contains d xmss sigs
     def test_sign_contains_d_xmss_sigs(self, ht, message, sk_seed, pk_seed):
@@ -323,7 +323,7 @@ class TestHypertree:
     def test_sign_each_layer_is_xmss_sig(self, ht, message, sk_seed, pk_seed):
         sig = ht.ht_sign(message, sk_seed, pk_seed, 0, 0)
         for s in sig.xmss_sigs:
-            assert isinstance(s, xmss_sig)
+            assert isinstance(s, XmssSig)
 
     # deterministic test
     def test_sign_deterministic(self, ht, message, sk_seed, pk_seed):
@@ -444,7 +444,7 @@ class TestFORS:
     # check test if returns correct type of sig
     def test_sign_returns_fors_sig(self, fors, fors_message, sk_seed, pk_seed):
         sig = fors.fors_sign(fors_message, sk_seed, pk_seed, make_fors_adrs())
-        assert isinstance(sig, FORS_sig)
+        assert isinstance(sig, ForsSig)
 
     # byte test
     def test_sign_sk_elements_are_n_bytes(self, fors, fors_message, sk_seed, pk_seed):
@@ -1678,7 +1678,7 @@ class TestFORSC:
     # sign tests
     def test_sign_returns_correct_types(self, fors_c, fors_c_message, sk_seed, pk_seed):
         sig, counter = fors_c.fors_sign(fors_c_message, sk_seed, pk_seed, make_fors_adrs())
-        assert isinstance(sig, FORS_sig)
+        assert isinstance(sig, ForsSig)
         assert isinstance(counter, int)
  
     def test_sign_counter_is_non_negative(self, fors_c, fors_c_message, sk_seed, pk_seed):
@@ -1747,7 +1747,7 @@ class TestFORSC:
         sig, counter = fors_c.fors_sign(fors_c_message, sk_seed, pk_seed, make_fors_adrs())
         tampered_sk = [bytes([b ^ 0xFF for b in sig.get_sk(0)])] + [sig.get_sk(i) for i in range(1, K)]
         # preserve last_root so the test isolates sk tampering, not a missing root
-        tampered = FORS_sig(tampered_sk, [sig.get_auth(i) for i in range(K)], sig.get_last_root())
+        tampered = ForsSig(tampered_sk, [sig.get_auth(i) for i in range(K)], sig.get_last_root())
         recovered = fors_c.fors_pkFromSig(tampered, fors_c_message, counter, pk_seed, make_fors_adrs())
         assert recovered != pk
  
@@ -1771,7 +1771,10 @@ class TestFORSC:
 # ================================================================
 
 from params.sphincs_params_Plus_C import SphincsParamsC
-from sphincs.sphincs_Plus_C import SphincsC, SK as SKC, PK as PKC, xmss_sig_c, XMSS_C, HypertreeC
+from sphincs.sphincs_Plus_C import SphincsC, SK as SKC, PK as PKC
+from XMSS.XMSS_sig_plus_c import XmssSigC
+from XMSS.XMSS_plus_c import XMSS_C
+from sphincs.hypertree.Hypertree_plus_c import HypertreeC
 
 # small parameters to keep tests fast
 PARAMS_C = SphincsParamsC(n=N, w=W, h=H, d=D, k=K, t=T, t_prime=T, z=0)
@@ -1779,24 +1782,24 @@ PARAMS_C_Z1 = SphincsParamsC(n=N, w=W, h=H, d=D, k=K, t=T, t_prime=T, z=1)
 
 
 # ================================================================
-# xmss_sig_c Tests
+# XmssSigC Tests
 # ================================================================
 
 class TestXMSSSigC:
 
     def test_stores_counter(self):
-        sig = xmss_sig_c([b"\x00" * N], [b"\x00" * N], 42)
+        sig = XmssSigC([b"\x00" * N], [b"\x00" * N], 42)
         assert sig.get_counter() == 42
 
     def test_to_bytes_prepends_counter(self):
-        sig = xmss_sig_c([b"\xab" * N], [b"\xcd" * N], 7)
+        sig = XmssSigC([b"\xab" * N], [b"\xcd" * N], 7)
         raw = sig.to_bytes()
         assert raw[:4] == (7).to_bytes(4, "big")
 
     def test_from_bytes_roundtrip(self):
-        sig = xmss_sig_c([b"\xab" * N] * 2, [b"\xcd" * N] * 3, 99)
+        sig = XmssSigC([b"\xab" * N] * 2, [b"\xcd" * N] * 3, 99)
         raw = sig.to_bytes()
-        recovered = xmss_sig_c.from_bytes(raw, 3, N, 2)
+        recovered = XmssSigC.from_bytes(raw, 3, N, 2)
         assert recovered.get_counter() == 99
         assert recovered.get_sig() == sig.get_sig()
         assert recovered.get_auth() == sig.get_auth()
@@ -1834,10 +1837,10 @@ class TestXMSSC:
         pk2 = xmss_c.xmss_PKgen(os.urandom(N), pk_seed, ADRS())
         assert pk1 != pk2
 
-    # sign returns an xmss_sig_c
-    def test_sign_returns_xmss_sig_c(self, xmss_c, message, sk_seed, pk_seed):
+    # sign returns an XmssSigC
+    def test_sign_returns_XmssSigC(self, xmss_c, message, sk_seed, pk_seed):
         sig = xmss_c.xmss_sign(message, sk_seed, 0, pk_seed, ADRS())
-        assert isinstance(sig, xmss_sig_c)
+        assert isinstance(sig, XmssSigC)
 
     # counter is stored in the sig
     def test_sign_counter_is_non_negative(self, xmss_c, message, sk_seed, pk_seed):
@@ -1937,17 +1940,17 @@ class TestHypertreeC:
     # sign returns a hypertree_sig with d layers
     def test_sign_returns_hypertree_sig(self, ht_c, message, sk_seed, pk_seed):
         sig = ht_c.ht_sign(message, sk_seed, pk_seed, 0, 0)
-        assert isinstance(sig, hypertree_sig)
+        assert isinstance(sig, HypertreeSig)
 
     def test_sign_contains_d_layers(self, ht_c, message, sk_seed, pk_seed):
         sig = ht_c.ht_sign(message, sk_seed, pk_seed, 0, 0)
         assert len(sig.xmss_sigs) == D
 
-    # each layer is an xmss_sig_c carrying a counter
-    def test_sign_each_layer_is_xmss_sig_c(self, ht_c, message, sk_seed, pk_seed):
+    # each layer is an XmssSigC carrying a counter
+    def test_sign_each_layer_is_XmssSigC(self, ht_c, message, sk_seed, pk_seed):
         sig = ht_c.ht_sign(message, sk_seed, pk_seed, 0, 0)
         for s in sig.xmss_sigs:
-            assert isinstance(s, xmss_sig_c)
+            assert isinstance(s, XmssSigC)
             assert s.get_counter() >= 0
 
     # same inputs always give same sig

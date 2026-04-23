@@ -3,11 +3,11 @@ from typing import List
 
 from helpers.ADRS import ADRS, ADRSType
 from WOTS.WOTS_Plus_C import WOTSPlusC
-from XMSS.XMSS_sig_plus_c import xmss_sig_c
+from XMSS.XMSS_sig_plus_c import XmssSigC
 from helpers.helpers import H
 
 # xmss variant using wots+c instead of wots+
-# wots_sign returns (sig, counter) so xmss_sign stores both in xmss_sig_c
+# wots_sign returns (sig, counter) so xmss_sign stores both in XmssSigC
 # wots_pkFromSig takes the counter as an extra argument
 class XMSS_C:
 
@@ -17,7 +17,7 @@ class XMSS_C:
         self.wots_c = wots_c
         self.adrs = adrs
 
-    def TreeHash(self, sk_seed: bytes, s: int, z: int, pk_seed: bytes, adrs: ADRS) -> bytes:
+    def tree_hash(self, sk_seed: bytes, s: int, z: int, pk_seed: bytes, adrs: ADRS) -> bytes:
         if s < 0 or z < 0:
             raise ValueError(f"{s} or/and {z} must be positive")
         if s > 0xFFFFFFFF or z > 0xFFFFFFFF:
@@ -42,22 +42,22 @@ class XMSS_C:
         return stack.pop()[0]
 
     def xmss_PKgen(self, sk_seed: bytes, pk_seed: bytes, adrs: ADRS) -> bytes:
-        return self.TreeHash(sk_seed, 0, self.xmss_h, pk_seed, adrs)
+        return self.tree_hash(sk_seed, 0, self.xmss_h, pk_seed, adrs)
 
-    def xmss_sign(self, M: bytes, sk_seed: bytes, idx: int, pk_seed: bytes, adrs: ADRS) -> xmss_sig_c:
-        AUTH: List[bytes] = [b""] * self.xmss_h
+    def xmss_sign(self, M: bytes, sk_seed: bytes, idx: int, pk_seed: bytes, adrs: ADRS) -> XmssSigC:
+        auth: List[bytes] = [b""] * self.xmss_h
         for j in range(self.xmss_h):
             k = math.floor(idx / pow(2, j)) ^ 1
-            AUTH[j] = self.TreeHash(sk_seed, k * pow(2, j), j, pk_seed, adrs)
+            auth[j] = self.tree_hash(sk_seed, k * pow(2, j), j, pk_seed, adrs)
         adrs.set_type(ADRSType.WOTS_HASH)
         adrs.set_key_pair_add(idx)
         sig, counter = self.wots_c.wots_sign(M, sk_seed, pk_seed, adrs)
-        return xmss_sig_c(sig, AUTH, counter)
+        return XmssSigC(sig, auth, counter)
 
-    def xmss_pkFromSig(self, idx: int, sig: xmss_sig_c, M: bytes, pk_seed: bytes, adrs: ADRS) -> bytes:
+    def xmss_pkFromSig(self, idx: int, sig: XmssSigC, M: bytes, pk_seed: bytes, adrs: ADRS) -> bytes:
         adrs.set_type(ADRSType.WOTS_HASH)
         adrs.set_key_pair_add(idx)
-        AUTH = sig.get_auth()
+        auth = sig.get_auth()
         signature = sig.get_sig()
         counter = sig.get_counter()
         node = self.wots_c.wots_pkFromSig(signature, M, counter, pk_seed, adrs)
@@ -67,10 +67,10 @@ class XMSS_C:
             adrs.set_tree_height(k + 1)
             if math.floor(idx / pow(2, k)) % 2 == 0:
                 adrs.set_tree_index(adrs.get_tree_index() // 2)
-                node = H(pk_seed, adrs, node, AUTH[k], self.n)
+                node = H(pk_seed, adrs, node, auth[k], self.n)
             else:
                 adrs.set_tree_index((adrs.get_tree_index() - 1) // 2)
-                node = H(pk_seed, adrs, AUTH[k], node, self.n)
+                node = H(pk_seed, adrs, auth[k], node, self.n)
         return node
 
     # sig_bytes already includes the 4-byte counter from wots_c.sig_bytes()

@@ -12,9 +12,9 @@ print("Inner module:", type(w._wots).__module__)
 # Call the inner wots_sign directly
 result = w._wots.wots_sign(
     M=os.urandom(16),
-    SK_seed=os.urandom(16),
-    PK_seed=os.urandom(16),
-    ADRS_obj=ADRS(),
+    sk_seed=os.urandom(16),
+    pk_seed=os.urandom(16),
+    adrs=ADRS(),
 )
 print("Inner wots_sign returned:", type(result).__name__, "with", len(result), "elements")
 print("Element types:", [type(x).__name__ for x in result])

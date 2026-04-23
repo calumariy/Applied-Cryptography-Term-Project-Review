@@ -3,7 +3,7 @@ from math import log
 from typing import List, Tuple
 from helpers.ADRS import ADRS, ADRSType
 from helpers.helpers import H, F, PRF, T_len
-from FORS.FORS_sig import FORS_sig
+from FORS.FORS_sig import ForsSig
 
 class FORS_C:
     # FORS+C variant from SPHINCS+C paper section 4.
@@ -98,7 +98,7 @@ class FORS_C:
         forspkADRS.set_key_pair_add(adrs.get_key_pair_add())
         return T_len(pk_seed, forspkADRS, root, self.n)
 
-    def fors_sign(self, M: bytes, sk_seed: bytes, pk_seed: bytes, adrs: ADRS) -> Tuple[FORS_sig, int]:
+    def fors_sign(self, M: bytes, sk_seed: bytes, pk_seed: bytes, adrs: ADRS) -> Tuple[ForsSig, int]:
         # find counter so last tree opens leaf 0, sign first k-1 trees normally.
         # last tree: store sk for leaf 0 only, drop the auth path (replaced by counter).
         # precompute and store the last tree root so the verifier does not need sk_seed.
@@ -130,9 +130,9 @@ class FORS_C:
             sk_seed, (self.k - 1) * self.t, self.a_prime, pk_seed, adrs.copy()
         )
 
-        return FORS_sig(sk_list, auth_list, last_root), counter
+        return ForsSig(sk_list, auth_list, last_root), counter
 
-    def fors_pkFromSig(self, sig: FORS_sig, M: bytes, counter: int, pk_seed: bytes, adrs: ADRS) -> bytes:
+    def fors_pkFromSig(self, sig: ForsSig, M: bytes, counter: int, pk_seed: bytes, adrs: ADRS) -> bytes:
         # verify counter is valid, recover first k-1 roots normally,
         # then use the precomputed last tree root stored in the signature.
         # no sk_seed required — this is a fully public verification.

@@ -14,7 +14,7 @@ class ADRSType(IntEnum):
     FORS_PRF   = 6
 
 class ADRS:
-    """"
+    """
     32-byte SPHINCS+ hash function address.
     1 word = 32 bits. (reminder 1 byte = 8 bits)
     Layout:
@@ -26,7 +26,7 @@ class ADRS:
     word 4 - type of the address
     words 5,6,7 - depends on the type of the address.
     """
-    size = 32
+    SIZE = 32
     # For context, type dictates which both some of the properties 
     # that specific ADRS should hold
     # as well as dictate the purpose of this specific ADRS instance.
@@ -120,8 +120,8 @@ class ADRS:
 
     @classmethod
     def from_bytes(cls, data:bytes) -> "ADRS":
-        if (len(data)!= cls.size):
-            raise ValueError(f"ADRS must be {cls.size} bytes, received {len(data)} instead.")
+        if len(data) != cls.SIZE:
+            raise ValueError(f"ADRS must be {cls.SIZE} bytes, received {len(data)} instead.")
         adrs = cls()
         adrs.words = list(struct.unpack(">8I", data))
         return adrs

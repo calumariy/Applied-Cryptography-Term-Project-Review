@@ -13,7 +13,8 @@ stored by the signer so the verifier does not need sk_seed.
 Plain FORS leaves this as None.
 """
 
-class FORS_sig:
+
+class ForsSig:
     sk: List[bytes]
     auth: List[List[bytes]]
     last_root: Optional[bytes]
@@ -33,7 +34,7 @@ class FORS_sig:
     def get_last_root(self) -> Optional[bytes]:
         return self.last_root
 
-    def get_self(self) -> "FORS_sig":
+    def get_self(self) -> "ForsSig":
         return self
 
     def to_bytes(self) -> bytes:
@@ -48,7 +49,7 @@ class FORS_sig:
         return bytes(sig_bytes)
 
     @staticmethod
-    def from_bytes(sig_bytes: bytes, k: int, a: int, n: int) -> "FORS_sig":
+    def from_bytes(sig_bytes: bytes, k: int, a: int, n: int) -> "ForsSig":
         sk = []
         auth = []
         offset = 0
@@ -60,4 +61,4 @@ class FORS_sig:
                 auth_layer.append(sig_bytes[offset:offset + n])
                 offset += n
             auth.append(auth_layer)
-        return FORS_sig(sk, auth)
+        return ForsSig(sk, auth)

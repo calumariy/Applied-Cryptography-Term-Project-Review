@@ -1,8 +1,9 @@
 from typing import List
-from XMSS.XMSS_sig import xmss_sig
+
+from XMSS.XMSS_sig import XmssSig
 
 # wire format: counter (4 bytes) || wots sig || auth path
-class xmss_sig_c(xmss_sig):
+class XmssSigC(XmssSig):
 
     def __init__(self, sig: List[bytes], auth: List[bytes], counter: int):
         super().__init__(sig, auth)
@@ -15,7 +16,7 @@ class xmss_sig_c(xmss_sig):
         return self.counter.to_bytes(4, "big") + super().to_bytes()
 
     @staticmethod
-    def from_bytes(sig_bytes: bytes, h: int, n: int, wots_len: int) -> "xmss_sig_c":
+    def from_bytes(sig_bytes: bytes, h: int, n: int, wots_len: int) -> "XmssSigC":
         counter = int.from_bytes(sig_bytes[:4], "big")
-        base = xmss_sig.from_bytes(sig_bytes[4:], h, n, wots_len)
-        return xmss_sig_c(base.get_sig(), base.get_auth(), counter)
+        base = XmssSig.from_bytes(sig_bytes[4:], h, n, wots_len)
+        return XmssSigC(base.get_sig(), base.get_auth(), counter)

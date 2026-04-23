@@ -1,4 +1,5 @@
 import os
+import math
 
 from typing import Tuple
 from dataclasses import dataclass
@@ -6,11 +7,11 @@ from helpers.ADRS import ADRS, ADRSType
 from params.sphincs_params import SphincsParams
 from WOTS.WOTSPLUS import WOTSPlus
 from sphincs.hypertree.Hypertree import Hypertree
-from sphincs.hypertree.Hypertree_sig import hypertree_sig
+from sphincs.hypertree.Hypertree_sig import HypertreeSig
 from FORS.FORS import FORS
-from FORS.FORS_sig import FORS_sig
+from FORS.FORS_sig import ForsSig
 from helpers.helpers import PRFmsg, Hmsg
-import math
+
 
 @dataclass
 class SK:
@@ -19,10 +20,12 @@ class SK:
     pk_seed: bytes
     pk_root: bytes
 
+
 @dataclass
 class PK:
     pk_seed: bytes
     pk_root: bytes
+
 
 # ===================================================================
 # Sphincs+ class with keygen, sign, and verify methods
@@ -30,147 +33,111 @@ class PK:
 
 class Sphincs:
     def __init__(self, params: SphincsParams, randomize: bool = True) -> None:
-        from WOTS.WOTSPLUS import WOTSPlus
-        # Validate parameters
         self.params = params
         self.a = int(math.log2(self.params.t))
-
-        # boolean to determine Deterministic vs Non-Deterministic randomiser
         self.randomize = randomize
-
-        # primitives
         self.adrs = ADRS()
         self.wots = WOTSPlus(self.params)
         self.fors = FORS(self.params.n, self.params.k, self.params.t, self.adrs)
         self.hypertree = Hypertree(self.params.h, self.params.d, self.params.w, self.params.n, self.wots, self.adrs)
 
-    # Property accessors for parameters (convenience for tests and users)
     @property
-    def n(self):
-        return self.params.n
+    def n(self): return self.params.n
 
     @property
-    def w(self):
-        return self.params.w
+    def w(self): return self.params.w
 
     @property
-    def h(self):
-        return self.params.h
+    def h(self): return self.params.h
 
     @property
-    def d(self):
-        return self.params.d
+    def d(self): return self.params.d
 
     @property
-    def k(self):
-        return self.params.k
+    def k(self): return self.params.k
 
     @property
-    def t(self):
-        return self.params.t
+    def t(self): return self.params.t
 
     def spx_keygen(self) -> Tuple[SK, PK]:
-
-        # Randomly generated values for SK and PK
         sk_seed = os.urandom(self.params.n)
         pk_seed = os.urandom(self.params.n)
-        sk_prf = os.urandom(self.params.n)
-
-        # Public key from hypertree root
+        sk_prf  = os.urandom(self.params.n)
         pk_root = self.hypertree.ht_PkGen(sk_seed, pk_seed)
-
-        # Putting it all together
         self.sk = SK(sk_seed, sk_prf, pk_seed, pk_root)
         self.pk = PK(pk_seed, pk_root)
-
-        return (self.sk, self.pk)
+        return self.sk, self.pk
 
     def spx_sign(self, message: bytes, sk: SK) -> bytes:
-
-        # Randomiser option
         if self.randomize:
             optrand = os.urandom(self.params.n)
         else:
             optrand = sk.pk_seed
 
-        # R is the Nonce value included in the signature for protection against multi-target attacks
-        R = PRFmsg(sk.sk_prf, optrand, message)
+        # r is the nonce included in the signature for protection against multi-target attacks
+        r = PRFmsg(sk.sk_prf, optrand, message)
 
-        SIG = bytearray()
-        SIG += R
+        sig = bytearray()
+        sig += r
 
-        # Hash message to derive FORS input + tree indices
-        digest = Hmsg(R, sk.pk_seed, sk.pk_root, message)
+        # hash message to derive FORS input + tree indices
+        digest = Hmsg(r, sk.pk_seed, sk.pk_root, message)
 
-        # Compute bit lengths of each component of the digest
-        md_bits = self.params.k * self.a
+        md_bits   = self.params.k * self.a
         tree_bits = self.params.h - (self.params.h // self.params.d)
         leaf_bits = self.params.h // self.params.d
         digest_int = int.from_bytes(digest, "big")
 
-        # Extract fields from digest
-        md = (digest_int >> (tree_bits + leaf_bits)) & ((1 << md_bits) - 1)
+        md       = (digest_int >> (tree_bits + leaf_bits)) & ((1 << md_bits) - 1)
         idx_tree = (digest_int >> leaf_bits) & ((1 << tree_bits) - 1)
         idx_leaf = digest_int & ((1 << leaf_bits) - 1)
 
-        # Convert FORS message digest to bytes
         md_bytes = md.to_bytes((md_bits + 7) // 8, "big")
 
-        # FORS signing process
         adrs = ADRS()
         adrs.set_layer_add(0)
         adrs.set_tree_add(idx_tree)
         adrs.set_type(ADRSType.FORS_TREE)
         adrs.set_key_pair_add(idx_leaf)
 
-        # Add FORS signature to the overall signature so far (sig = R || sig_fors)
         sig_fors = self.fors.fors_sign(md_bytes, sk.sk_seed, sk.pk_seed, adrs)
-        SIG += sig_fors.to_bytes()
+        sig += sig_fors.to_bytes()
 
-        # Add the hypertree signature to the previous signature so sig = R || sig_fors || sig_ht
         pk_fors = self.fors.fors_pkFromSig(sig_fors, md_bytes, sk.pk_seed, adrs)
-        sig_ht = self.hypertree.ht_sign(pk_fors, sk.sk_seed, sk.pk_seed, idx_tree, idx_leaf)
-        SIG += sig_ht.to_bytes()
+        sig_ht  = self.hypertree.ht_sign(pk_fors, sk.sk_seed, sk.pk_seed, idx_tree, idx_leaf)
+        sig += sig_ht.to_bytes()
 
-        return bytes(SIG)
+        return bytes(sig)
 
-    def spx_verify(self, message: bytes, SIG: bytes, pk: PK) -> bool:
+    def spx_verify(self, message: bytes, sig: bytes, pk: PK) -> bool:
         offset = 0
 
-        # Parse the signature into its components: R, sig_fors, and sig_ht
-        R = SIG[offset:offset + self.params.n]
+        r = sig[offset:offset + self.params.n]
         offset += self.params.n
 
-        # Determine expected lengths of signature components based on sphincs parameters
         sig_fors_len = self.fors.sig_bytes()
         sig_ht_len   = self.hypertree.sig_bytes()
 
-        # Extract FORS signature
-        SIG_FORS_bytes = SIG[offset:offset + sig_fors_len]
+        sig_fors_bytes = sig[offset:offset + sig_fors_len]
         offset += sig_fors_len
 
-        # Extract hypertree signature
-        SIG_HT_bytes = SIG[offset:offset + sig_ht_len]
+        sig_ht_bytes = sig[offset:offset + sig_ht_len]
 
-        # Deserialize signatures
-        sig_fors = FORS_sig.from_bytes(SIG_FORS_bytes, self.params.k, self.a, self.params.n)
-        sig_ht = hypertree_sig.from_bytes(SIG_HT_bytes, self.params.h, self.params.n, self.params.d, self.wots.params.len)
+        sig_fors = ForsSig.from_bytes(sig_fors_bytes, self.params.k, self.a, self.params.n)
+        sig_ht   = HypertreeSig.from_bytes(sig_ht_bytes, self.params.h, self.params.n, self.params.d, self.wots.params.len)
 
-        # Recompute the message digest to extract FORS input and tree indices
-        digest = Hmsg(R, pk.pk_seed, pk.pk_root, message)
-        md_bits = self.params.k * self.a
+        digest = Hmsg(r, pk.pk_seed, pk.pk_root, message)
+        md_bits   = self.params.k * self.a
         tree_bits = self.params.h - (self.params.h // self.params.d)
         leaf_bits = self.params.h // self.params.d
         digest_int = int.from_bytes(digest, "big")
 
-        # Extract same fields as in signing
-        md = (digest_int >> (tree_bits + leaf_bits)) & ((1 << md_bits) - 1)
+        md       = (digest_int >> (tree_bits + leaf_bits)) & ((1 << md_bits) - 1)
         idx_tree = (digest_int >> leaf_bits) & ((1 << tree_bits) - 1)
         idx_leaf = digest_int & ((1 << leaf_bits) - 1)
 
         md_bytes = md.to_bytes((md_bits + 7) // 8, "big")
 
-        # Reconstruct FORS public key
         adrs = ADRS()
         adrs.set_layer_add(0)
         adrs.set_tree_add(idx_tree)
@@ -179,6 +146,4 @@ class Sphincs:
 
         pk_fors = self.fors.fors_pkFromSig(sig_fors, md_bytes, pk.pk_seed, adrs)
 
-        # Finally, verify the hypertree signature using the reconstructed FORS public key and the provided public key
         return self.hypertree.ht_verify(pk_fors, sig_ht, pk.pk_seed, idx_tree, idx_leaf, pk.pk_root)
-    
