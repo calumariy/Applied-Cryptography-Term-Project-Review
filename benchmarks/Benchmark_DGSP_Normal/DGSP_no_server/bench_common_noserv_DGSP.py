@@ -7,9 +7,10 @@ and pass an instance to the run_* functions.
 import sys
 import os
 import time
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
+
 
 from params.sphincs_params import SphincsParams
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src"))
 
 from helpers import helpers
 from helpers.ADRS import ADRS
