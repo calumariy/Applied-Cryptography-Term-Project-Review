@@ -90,7 +90,7 @@ def H_simple(data: bytes, n: int) -> bytes:
 
 
 # ==============================
-# SPRP (AES-128) for ζ_{id,j} = E(msk2, id ‖ j)
+# SPRP (AES-128) for rho_{id,j} = E(msk2, id ‖ j)
 # Used by the manager in ResponseM, Revoke, and Open.
 # ==============================
 
