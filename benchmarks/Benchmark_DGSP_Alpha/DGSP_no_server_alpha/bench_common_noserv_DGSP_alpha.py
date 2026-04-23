@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "sr
 
 from helpers import helpers
 from helpers.ADRS import ADRS
-from params.sphincs_params import SphincsParams
+from params.sphincs_params_Alpha import SphincsParamsAlpha
 from DGSP.manager import Manager
 from DGSP.judge import judge
 
@@ -28,7 +28,7 @@ def _encode_id(user_id: int) -> bytes:
     return user_id.to_bytes(8, 'big')
 
 
-def wots_keypair(params: SphincsParams) -> bytes:
+def wots_keypair(params: SphincsParamsAlpha) -> bytes:
     """Generate a WOTS+ public key using whichever variant params dictate."""
     wots = params.make_wots()
     seed = os.urandom(params.n)
@@ -38,7 +38,7 @@ def wots_keypair(params: SphincsParams) -> bytes:
     return wots.wots_PKgen(sk_seed, rho, ADRS())
 
 
-def build_signature(params: SphincsParams, manager, user_id, cstar, msg):
+def build_signature(params: SphincsParamsAlpha, manager, user_id, cstar, msg):
     """
     Synthesise a well-formed 6-tuple DGSP signature the way Member.sign() does.
     Returns (sig_tuple, pi, pk_idj, sk_seed, rho).
@@ -80,7 +80,7 @@ def _cert_tuple_bytes(cert_tuple) -> int:
 # Benchmark drivers
 # ---------------------------------------------------------------------------
 
-def run_keygen_DGSP(label: str, params: SphincsParams,
+def run_keygen_DGSP(label: str, params: SphincsParamsAlpha,
                     n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
     m = Manager(params)
     for _ in range(n_warmup):
@@ -101,7 +101,7 @@ def run_keygen_DGSP(label: str, params: SphincsParams,
     }
 
 
-def run_resp_m_DGSP(label: str, params: SphincsParams,
+def run_resp_m_DGSP(label: str, params: SphincsParamsAlpha,
                     n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
     m = Manager(params)
     pk = m.keygen()
@@ -127,7 +127,7 @@ def run_resp_m_DGSP(label: str, params: SphincsParams,
     }
 
 
-def run_open_DGSP(label: str, params: SphincsParams,
+def run_open_DGSP(label: str, params: SphincsParamsAlpha,
                   n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
     m = Manager(params)
     pk = m.keygen()
@@ -159,7 +159,7 @@ def run_open_DGSP(label: str, params: SphincsParams,
     }
 
 
-def run_revoke_DGSP(label: str, params: SphincsParams,
+def run_revoke_DGSP(label: str, params: SphincsParamsAlpha,
                     n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
     m = Manager(params)
     pk = m.keygen()
@@ -189,7 +189,7 @@ def run_revoke_DGSP(label: str, params: SphincsParams,
     }
 
 
-def run_judge_DGSP(label: str, params: SphincsParams,
+def run_judge_DGSP(label: str, params: SphincsParamsAlpha,
                    n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
     m = Manager(params)
     pk = m.keygen()
@@ -218,7 +218,7 @@ def run_judge_DGSP(label: str, params: SphincsParams,
     }
 
 
-def run_sig_size_DGSP(label: str, params: SphincsParams,
+def run_sig_size_DGSP(label: str, params: SphincsParamsAlpha,
                       n_runs: int = N_RUNS, n_warmup: int = N_WARMUP) -> dict:
     """
     Dummy-timed benchmark used purely to record signature size.

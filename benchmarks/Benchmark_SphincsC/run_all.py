@@ -145,10 +145,9 @@ def sweep(curr_op: str):
             continue
         if (t & (t - 1)) != 0:
             continue
-
+        label  = f"n={n} w={w} h={h} d={d} k={k} t={t}"
         try:
             params = SphincsParamsC(n=n, w=w, h=h, d=d, k=k, t=t, t_prime=t_prime, z=z)
-            label  = f"n={n} w={w} h={h} d={d} k={k} t={t}"
             r      = run_fn(label, params, n_runs=N_RUNS, n_warmup=N_WARMUP)
         except Exception as e:
             print(f"[{idx:>4}/{total}] SKIP {label}  ({e})")
