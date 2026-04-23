@@ -2,7 +2,9 @@
 
 A Python implementation of the SPHINCS+ stateless hash-based signature scheme, extended with two size-reducing optimisations (SPHINCS+C and SPHINCS-alpha), and adapted into a group signature scheme (DGSP).
 
-## Installing Requirements
+## Requirements
+
+**Python 3.9+** required. Developed and tested on Python 3.13.
 
 ```bash
 pip install -r requirements.txt
