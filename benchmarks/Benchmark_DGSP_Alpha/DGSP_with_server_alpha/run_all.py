@@ -44,10 +44,10 @@ D_VALS = [2, 3]
 K_VALS = [4, 6, 8]
 T_VALS = [8, 16, 32]
 
-ALL_OPS = ["get_pk", "join", "resp_m", "judge", "open", "sign", "verify"]
+ALL_OPS = ["keygen", "join", "resp_m", "judge", "open", "sign", "verify"]
 
 RUNNERS = {
-    "get_pk":   bench_common.run_keygen_server,
+    "keygen":   bench_common.run_keygen_server,
     "join":     bench_common.run_join_server,
     "resp_m":   bench_common.run_resp_m_server,
     "judge":    bench_common.run_judge_server,
@@ -60,7 +60,7 @@ BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t",
                "sig_bytes", "mean_ms", "median_ms", "min_ms", "max_ms", "stdev_ms"]
 
 EXTRA_FIELDS = {
-    "get_pk":   ["pk_bytes"],
+    "keygen":   ["pk_bytes"],
     "resp_m":   ["cert_size"],
     "judge":    ["sig_size", "pk_size"],
     "open":     ["sig_size", "pk_size"],
@@ -124,7 +124,7 @@ def build_row(rank: int, result: dict, curr_op: str) -> dict:
         "max_ms":    round(max(times)                       * 1000, 6),
         "stdev_ms":  round(statistics.stdev(times) * 1000, 6) if len(times) > 1 else 0.0,
     }
-    if curr_op == "get_pk":
+    if curr_op == "keygen":
         row["pk_bytes"]           = raw.get("pk_size",       "")
     if curr_op == "resp_m":
         row["cert_size"]        = raw.get("cert_size",          "")
@@ -169,7 +169,7 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
 
     print(f"\n  Full detail for rank 1:")
 
-    if curr_op == "get_pk":     bench_keygen_serv_DGSP_alpha.print_results(ranked[0]["raw"])
+    if curr_op == "keygen":     bench_keygen_serv_DGSP_alpha.print_results(ranked[0]["raw"])
     elif curr_op == "join":     bench_join_serv_DGSP_alpha.print_results(ranked[0]["raw"])
     elif curr_op == "resp_m":   bench_respM_serv_DGSP_alpha.print_results(ranked[0]["raw"])
     elif curr_op == "judge":    bench_judge_serv_DGSP_alpha.print_results(ranked[0]["raw"])

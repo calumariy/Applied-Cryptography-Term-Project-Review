@@ -38,12 +38,12 @@ N_RUNS        = 5
 N_WARMUP      = 1
 
 # par ranges
-N_VALS = [16, 32]
+N_VALS = [32]
 # I wanted a W value to be 256 like in other run_alls, but the proccessing power heavily stalls at that point.
-W_VALS = [4, 16, 64]
-H_VALS = [6, 10, 12]
-D_VALS = [2, 3]
-K_VALS = [4, 6, 8]
+W_VALS = [16]
+H_VALS = [16]
+D_VALS = [8]
+K_VALS = [17]
 T_VALS = [8, 16, 32]
 T_PRIME_VALS = [8, 16, 32]
 # Z val of 4 also causes a huge increase in processing time.
@@ -61,27 +61,28 @@ RUNNERS = {
     "verify":   bench_common.run_verify_server  
 }
 
-BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t",
+BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t", "t_prime", "z"
                "sig_bytes", "mean_ms", "median_ms", "min_ms", "max_ms", "stdev_ms"]
 
 EXTRA_FIELDS = {
-    "get_pk":   ["pk_bytes"],
-    "resp_m":   ["cert_size"],
-    "judge":    ["sig_size", "pk_size"],
-    "open":     ["sig_size", "pk_size"],
-    "sign":     ["sig_size", "pk_size"],
-    "verify":   ["sig_size", "pk_size"],
+    "keygen":  ["pk_bytes"],
+    "resp_m":  ["cert_size"],
+    "judge":   ["pk_size"],
+    "open":    ["pk_size"],
+    "sign":    ["pk_size"],
+    "verify":  ["pk_size"],
 }
 
 
 # =============== SERVER HELPERS =====================
 
 # uses subprocess to run python script to open server.
-def start_server(n, w, h, d, k, t) -> subprocess.Popen:
+def start_server(n, w, h, d, k, t, t_prime, z) -> subprocess.Popen:
     cmd = [
         sys.executable, SERVER_PY,
         SERVER_HOST, str(SERVER_PORT),
         str(n), str(w), str(h), str(d), str(k), str(t),
+        str(t_prime), str(z)
     ]
     return subprocess.Popen(cmd)
 
@@ -131,19 +132,18 @@ def build_row(rank: int, result: dict, curr_op: str) -> dict:
         "max_ms":    round(max(times)                       * 1000, 6),
         "stdev_ms":  round(statistics.stdev(times) * 1000, 6) if len(times) > 1 else 0.0,
     }
-    if curr_op == "get_pk":
+    if curr_op == "keygen":
         row["pk_bytes"]           = raw.get("pk_size",       "")
     if curr_op == "resp_m":
         row["cert_size"]        = raw.get("cert_size",          "")
     if curr_op in ("open", "judge", "verify", "sign"):
-        row["sig_bytes"]         = raw.get("sig_size",           "")
-        row["pk_size"]    = raw.get("pk_size",       "")
+        row["pk_size"] = raw.get("pk_size", "")
     return row
 
 
 def write_csv(results: list, path: str, curr_op: str) -> None:
 
-    ranked = sorted(results, key=lambda r: r["sig_bytes"] if curr_op == "sig_size" else r["mean_ms"])
+    ranked = sorted(results, key=lambda r: r["mean_ms"])
     fields = build_csv_fields(curr_op)
 
     with open(path, "w", newline="") as fh:
@@ -176,7 +176,7 @@ def print_top(results: list, curr_op: str, n: int = 10) -> None:
 
     print(f"\n  Full detail for rank 1:")
 
-    if curr_op == "get_pk":     bench_keygen_serv_DGSP_C.print_results(ranked[0]["raw"])
+    if curr_op == "keygen":     bench_keygen_serv_DGSP_C.print_results(ranked[0]["raw"])
     elif curr_op == "join":     bench_join_serv_DGSP_C.print_results(ranked[0]["raw"])
     elif curr_op == "resp_m":   bench_respM_serv_DGSP_C.print_results(ranked[0]["raw"])
     elif curr_op == "judge":    bench_judge_serv_DGSP_C.print_results(ranked[0]["raw"])
@@ -205,7 +205,7 @@ def run():
         label = f"n={n} w={w} h={h} d={d} k={k} t={t}"
         print(f"\n[{idx:>4}/{len(combos)}] {label}")
 
-        proc = start_server(n, w, h, d, k, t)
+        proc = start_server(n, w, h, d, k, t, t_prime, z)
         server_temp_params = SphincsParamsC(n, w, h, d, k ,t, t_prime, z)
         if not wait_for_server(server_temp_params):
             print(f"  SKIP — server did not start in time")
