@@ -38,18 +38,18 @@ N_RUNS        = 5
 N_WARMUP      = 1
 
 # par ranges
-N_VALS = [32]
+N_VALS = [16, 32]
 # I wanted a W value to be 256 like in other run_alls, but the proccessing power heavily stalls at that point.
-W_VALS = [16]
-H_VALS = [16]
-D_VALS = [8]
-K_VALS = [17]
+W_VALS = [4, 16, 64]
+H_VALS = [6, 10, 12]
+D_VALS = [2, 3]
+K_VALS = [4, 6, 8]
 T_VALS = [8, 16, 32]
 T_PRIME_VALS = [8, 16, 32]
 # Z val of 4 also causes a huge increase in processing time.
 Z_VALS = [0, 2]
 
-ALL_OPS = ["keygen", "join", "resp_m", "judge", "open", "sign", "verify"]
+ALL_OPS = ["keygen"]
 
 RUNNERS = {
     "keygen":   bench_common.run_keygen_server,
@@ -61,7 +61,7 @@ RUNNERS = {
     "verify":   bench_common.run_verify_server  
 }
 
-BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t", "t_prime", "z"
+BASE_FIELDS = ["rank", "n", "w", "h", "d", "k", "t", "t_prime", "z",
                "sig_bytes", "mean_ms", "median_ms", "min_ms", "max_ms", "stdev_ms"]
 
 EXTRA_FIELDS = {
