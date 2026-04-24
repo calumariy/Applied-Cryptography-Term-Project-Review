@@ -49,7 +49,7 @@ T_PRIME_VALS = [8, 16, 32]
 # Z val of 4 also causes a huge increase in processing time.
 Z_VALS = [0, 2]
 
-ALL_OPS = ["keygen"]
+ALL_OPS = ["keygen", "join", "resp_m", "judge", "open", "sign", "verify"]
 
 RUNNERS = {
     "keygen":   bench_common.run_keygen_server,
