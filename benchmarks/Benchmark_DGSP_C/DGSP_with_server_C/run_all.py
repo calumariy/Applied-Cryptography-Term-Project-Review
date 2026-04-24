@@ -122,6 +122,8 @@ def build_row(rank: int, result: dict, curr_op: str) -> dict:
         "d":         result["d"],
         "k":         result["k"],
         "t":         result["t"],
+        "t_prime":   result["t_prime"],
+        "z":         result["z"],
         "sig_bytes": result["sig_bytes"],
         "mean_ms":   round(statistics.geometric_mean(times) * 1000, 6),
         "median_ms": round(statistics.median(times)         * 1000, 6),
