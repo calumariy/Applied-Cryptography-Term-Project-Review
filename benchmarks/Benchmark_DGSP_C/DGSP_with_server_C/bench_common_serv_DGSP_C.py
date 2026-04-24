@@ -35,8 +35,12 @@ from params.sphincs_params_Plus_C import SphincsParamsC
 from helpers.ADRS import ADRS
 from DGSP.member import Member
 from DGSP.judge import judge
-from MemberOpen_C import MemberOpen
 from DGSP.verify import verify
+
+try:
+    from .MemberOpen_C import MemberOpen
+except ImportError:
+    from MemberOpen_C import MemberOpen
 
 N_RUNS   = 10
 N_WARMUP = 1

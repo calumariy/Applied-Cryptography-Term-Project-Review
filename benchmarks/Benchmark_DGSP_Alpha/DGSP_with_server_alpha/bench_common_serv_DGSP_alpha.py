@@ -34,8 +34,12 @@ from params.sphincs_params_Alpha import SphincsParamsAlpha
 from helpers.ADRS import ADRS
 from DGSP.member import Member
 from DGSP.judge import judge
-from MemberOpenAlpha import MemberOpen
 from DGSP.verify import verify
+
+try:
+    from .MemberOpenAlpha import MemberOpen
+except ImportError:
+    from MemberOpenAlpha import MemberOpen
 
 N_RUNS   = 10
 N_WARMUP = 1
